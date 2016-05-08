@@ -4,6 +4,7 @@
 {% get_current_language as LANGUAGE_CODE %}
 {% load static %}
 {% load staff_templatetags %}
+{% load evaluation_templatetags %}
 
 {% block subtitle %}
     {{ block.super }}
@@ -13,36 +14,34 @@
 {% block content %}
     {{ block.super }}
     <div>
-        <a href="{% url "evap.staff.views.user_import" %}" class="btn btn-sm btn-default">{% trans "Import Users" %}</a>
-        <a href="{% url "evap.staff.views.user_create" %}{% if filter %}?filter={{ filter|urlencode }}{% endif %}" class="btn btn-sm btn-success">{% trans "Create new user" %}</a>
+        <a href="{% url "staff:user_import" %}" class="btn btn-sm btn-default">{% trans "Import users" %}</a>
+        <a href="{% url "staff:user_merge_selection" %}" class="btn btn-sm btn-default">{% trans "Merge users" %}</a>
+        <a href="{% url "staff:user_bulk_delete" %}" class="btn btn-sm btn-default">{% trans "Bulk delete users" %}</a>
+        <a href="{% url "staff:user_create" %}{% if filter %}?filter={{ filter|urlencode }}{% endif %}" class="btn btn-sm btn-success">{% trans "Create new user" %}</a>
     </div>
     <table class="table table-striped user-table">
         <thead>
             <tr>
-                <th class="minimize-with-padding">{% trans "Name" %}</th>
-                <th class="maximize">{% trans "Username" %}</th>
-                <th class="minimize-with-padding">{% trans "Information" %}</th>
-                <th class="minimize-with-padding">{% trans "Actions" %}</th>
+                <th class="col-sm-3">{% trans "Name" %}</th>
+                <th class="col-sm-3">{% trans "Username" %}</th>
+                <th class="col-sm-4">{% trans "Information" %}</th>
+                <th class="col-sm-2">{% trans "Actions" %}</th>
             </tr>
         </thead>
         <tbody>
         {% for user in users %}
-            <tr>
-                <td class="minimize-with-padding">
-                    {{ user.full_name }}
-                </td>
-                <td class="maximize">
-                    {{ user.username }}
-                </td>
-                <td class="minimize-with-padding">
-                    {% include_staff_user_labels user %}
-                </td>
-                <td class="minimize-with-padding">
-                    <a href="{% url "evap.staff.views.user_edit" user.id %}" class="btn btn-default btn-sm">{% trans "Edit" %}</a>
+            <tr id="user-row-{{ user.id }}">
+                <td>{{ user.full_name }}</td>
+                <td>{{ user.username }}</td>
+                <td>{% include_staff_user_labels user %}</td>
+                <td>
+                    <a href="{% url "staff:user_edit" user.id %}" class="btn btn-default btn-sm">{% trans "Edit" %}</a>
                     {% if user.can_staff_delete %}
-                        <a href="{% url "evap.staff.views.user_delete" user.id %}" class="btn btn-danger btn-sm">{% trans "Delete" %}</a>
+                        <a class="btn btn-danger btn-sm" onclick="show_delete_modal({{ user.id }}, '{{ user.full_name|escapejs }}');">{% trans "Delete" %}</a>
                     {% else %}
-                        <a class="btn btn-sm btn-danger twipsify" disabled="disabled" title="{% trans "This user cannot be deleted because he is a contributor to a course" %}">{% trans "Delete" %}</a>
+                        <div data-toggle="tooltip" data-placement="left" class="disabled-tooltip" title="{% trans "This user cannot be deleted because he is a contributor to a course or participates in a course that hasn't been archived yet" %}">
+                            <a class="btn btn-sm btn-danger disabled">{% trans "Delete" %}</a>
+                        </div>
                     {% endif %}
                 </td>
             </tr>
@@ -51,30 +50,26 @@
     </table>
 {% endblock %}
 
-{% block scripts %}
+{% block modals %}
     {{ block.super }}
-
+    {% trans "Delete user" as title %}
+    {% trans 'Do you really want to delete the user <strong id="data-label"></strong>?' as question %}
+    {% trans "Delete user" as action_text %}
+    {% include_confirmation_modal "delete_modal" title question action_text "danger" %}
     <script type="text/javascript">
-        $(document).ready(function() {
-            $(".twipsify").tooltip({container: 'body'});
-
-            if ($.fn.button.noConflict != undefined) {
-                $.fn.button.noConflict();
-            }
-
-            $("select[multiple='multiple']").each(function(i,e) {
-                //$(e).width($(e).width());
-                $(e).multiselect({ locale: "{{ LANGUAGE_CODE }}" });
+        function delete_modal_action(data_id) {
+            $.ajax({
+                type: "POST",
+                url: "{% url "staff:user_delete" %}",
+                data: {"user_id": data_id},
+                success: function(){ $('#user-row-'+data_id).hide('slow', function(){ $('#user-row-'+data_id).remove(); }); },
+                error: function(){ $('#user-row-'+data_id).effect("highlight", {color:"#eb595a"}, 2000); }
             });
-
-            $("#id_is_staff").click(function() {
-                if($("#id_is_staff").is(":checked"))
-                    $("#id_is_superuser").prop('checked', true);
-            });
-        });
+        };
     </script>
+{% endblock %}
 
-
+{% block additional_javascript %}
     <script type="text/javascript" src="{% get_static_prefix %}js/plugins/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="{% get_static_prefix %}js/plugins/dataTables.bootstrap.js"></script>
     <script type="text/javascript">

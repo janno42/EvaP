@@ -1,12 +1,13 @@
 {% extends "results_base.html" %}
 
 {% load morefilters %}
+{% load evaluation_templatetags %}
 {% load i18n %}
 {% load static %}
 
 {% block subtitle %}
     {{ block.super }}
-    <li><a href="{% url "evap.results.views.semester_detail" course.semester.id %}">{{ course.semester.name }}</a></li>
+    <li><a href="{% url "results:semester_detail" course.semester.id %}">{{ course.semester.name }}</a></li>
     <li>{{ course.name }}</li>
 {% endblock %}
 
@@ -19,103 +20,125 @@
         <div class="alert alert-warning">{% trans "The results of this course have not been published because it didn't get enough votes." %}</div>
     {% endif %}
 
-    <h3>{{ course.name }} ({{ course.semester.name }})</h3>
+    {% if staff or contributor %}
+        {% if public_view %}
+            <div class="alert alert-info hidden-print">{% trans "This is the public view. Users who are neither contributors of this course nor their delegates can only see the results below." %}</div>
+            <a href="{% url "results:course_detail" course.semester.id course.id %}?public_view=false" class="pull-right btn btn-sm btn-primary hidden-print">{% trans "Show my view" %}</a>
+        {% elif not sufficient_votes_warning %}
+            <a href="{% url "results:course_detail" course.semester.id course.id %}?public_view=true" class="pull-right btn btn-sm btn-default hidden-print">{% trans "Show public view" %}</a>
+        {% endif %}
+    {% endif %}
+    <h2>{{ course.name }} ({{ course.semester.name }})</h2>
 
     <div class="panel panel-info">
         <div class="panel-heading">
-            <h3 class="panel-title">{% trans "Overview" %}</h3>
+            <span class="panel-title">{% trans "Overview" %}</span>
+            {% if course.grades_activated and course.grade_documents.count == 1 and can_download_grades %}
+                <div class="pull-right btn-group">
+                    <a href="{% url "grades:download_grades" course.grade_documents.all.first.id %}" class="btn btn-xs btn-default" role="button" aria-expanded="false">{{ course.grade_documents.all.first.description }}</a>
+                </div>    
+            {% elif course.grade_documents.count > 1 and can_download_grades %}
+                <div class="pull-right btn-group">
+                    <button type="button" class="btn btn-xs btn-default dropdown-toggle hidden-print" data-toggle="dropdown" aria-expanded="false">{% trans "Download grades" %} <span class="caret"></span></button>
+                    <ul class="dropdown-menu" role="menu">
+                        {% for grade_document in course.grade_documents.all %}
+                            <li><a href="{% url "grades:download_grades" grade_document.id %}">{{ grade_document.description }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
         </div>
-        <div class="panel-body nobottompadding">
+        <div class="panel-body">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>{% trans "Degree" %}</th>
-                        <th>{% trans "Type" %}</th>
-                        <th>{% trans "Responsible" %}</th>
-                        <th>{% trans "Average Grade" %}</th>
-                        <th>{% trans "Median Grade" %}</th>
-                        <th>{% trans "Voters" %}</th>
-                        <th></th>
+                        <th class="col-xs-1">{% trans "Degree" %}</th>
+                        <th class="col-xs-2">{% trans "Type" %}</th>
+                        <th class="col-xs-3">{% trans "Responsible" %}</th>
+                        <th class="col-xs-2">{% trans "Average Grade" %}</th>
+                        <th class="col-xs-2">{% trans "Standard Deviation" %}</th>
+                        <th class="col-xs-2">{% if course.is_single_result|is_false %}{% trans "Voters" %}{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="col-sm-1">{{ course.degree }}</td>
-                        <td class="col-sm-2">{{ course.kind }}</td>
-                        <td class="col-sm-3">{{ course.responsible_contributors_name }}</td>
-                        {% if staff or course.can_publish_grades %}
-                            <td class="col-sm-2">{{ course.avg_grade|floatformat:1 }}</td>
-                            <td class="col-sm-2">{{ course.med_grade|floatformat:1 }}</td>
+                        <td>
+                            {% for degree in course.degrees.all %}
+                                {{ degree }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>{{ course.type }}</td>
+                        <td>{{ course.responsible_contributor.full_name }}</td>
+                        {% if show_grades %}
+                            <td><div class="grade-bg text-center" style="background-color: {{ course.avg_grade|gradecolor }};">{{ course.avg_grade|floatformat:1 }}</div></td>
+                            <td><div class="deviation-bg text-center" style="background-color: {{ course.avg_deviation|deviationcolor }};">{{ course.avg_deviation|floatformat:1 }}</div></td>
                         {% else %}
-                            <td title="{% trans "Not enough answers were given." %}">&mdash;</td>
-                            <td title="{% trans "Not enough answers were given." %}">&mdash;</td>
+                            <td><div class="grade-bg grade-bg-disabled text-center" data-toggle="tooltip" data-placement="left" title="{% trans "Not enough answers were given." %}">&mdash;</div></td>
+                            <td><div class="deviation-bg deviation-bg-disabled text-center" data-toggle="tooltip" data-placement="left" title="{% trans "Not enough answers were given." %}">&mdash;</div></td>
                         {% endif %}
-                        {% if course.num_participants %}
-                            <td class="col-sm-2">
-                                {% spaceless %}
-                                    <div style="background: #c9e1fa; display: inline-block; width: 70%;">
-                                        <div style="display: inline-block; width: {% widthratio course.num_voters course.num_participants 100 %}%; background: #126bc5; color:white;">
-                                            <div style="font-size: 80%; width: 100%; max-width: 100%; display: inline-block; vertical-align: middle;">&nbsp;{{ course.num_voters }}</div>
-                                        </div>
-                                    </div>
-                                {% endspaceless %}
-                                <span style="font-size: 80%;">{{ course.num_participants }}</span>
-                            </td>
-                            <td class="col-sm-1">
-                                {{ course.num_voters|percentage:course.num_participants|default:'&mdash;' }}
-                            </td>
-                        {% else %}
-                            <td class="col-sm-3">
-                                &mdash;
-                            </td>
-                        {% endif %}
+                        <td>{% if course.is_single_result|is_false %}{% include_progress_bar course.num_voters course.num_participants %}{% endif %}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <div class="panel panel-info">
-        <div class="panel-heading">
-            <h3 class="panel-title">{% trans "Course" %}</h3>
+    {% if course_sections %}
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <span class="panel-title">{% trans "Course" %}</span>
+            </div>
+            <div class="panel-body">
+                {% regroup course_sections by questionnaire as sections_grouped %}
+                {% for group in sections_grouped %}
+                    {% include "results_course_detail_questionnaires.html" %}
+                {% endfor %}
+            </div>
         </div>
-        <div class="panel-body nobottompadding">
-            {% regroup course_sections by questionnaire as sections_grouped %}
-            {% for group in sections_grouped %}
-                {% include "results_course_detail_questionnaires.html" %}
-            {% endfor %}
-        </div>
-    </div>
+    {% endif %}
 
-    <div class="panel panel-info">
-        <div class="panel-heading">
-            <h3 class="panel-title">{% trans "Contributors" %}</h3>
-        </div>
-        <div class="panel-body nobottompadding">
-            {% for contributor,sections in contributor_sections.items %}
-                {% regroup sections by questionnaire as sections_grouped %}
-                <div class="panel panel-default">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">{{ contributor.full_name }}</h3>
+    {% if contributor_sections %}
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <span class="panel-title">{% trans "Contributors" %}</span>
+            </div>
+            <div class="panel-body">
+                <div class="panel-group">
+                {% for contributor, contributor_data in contributor_sections.items %}
+                    {% regroup contributor_data.sections by questionnaire as sections_grouped %}
+                    <div class="panel panel-default">
+                        {% comment %} Logic for collapsing Contributor Sections with no votes. {% endcomment %}
+                        {% if contributor_data.total_votes == 0 %}
+                            <div class="panel-heading">
+                                <span class="panel-title">
+                                    <div class="inline-headers">
+                                        <p class="pull-right participants-warning">
+                                            <span class="glyphicon glyphicon-warning-sign"></span>
+                                            {% trans "There are no results for this contributor" %}
+                                        </p>
+                                    </div>
+                                     <a class="accordion-toggle collapsed" data-toggle="collapse" data-parent="#accordion" href="#{{ contributor.id }}">{{ contributor.full_name }}{% if sections_grouped.0.list.0.label %} &ndash; <i>{{ sections_grouped.0.list.0.label }}</i>{% endif %}</a>
+                                </span>
+                            </div>
+                            <div id="{{ contributor.id }}" class="panel-collapse collapse">
+                        {% else %}
+                            <div class="panel-heading">
+                                <span class="panel-title">
+                                     <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#{{ contributor.id }}">{{ contributor.full_name }}{% if sections_grouped.0.list.0.label %} &ndash; <i>{{ sections_grouped.0.list.0.label }}</i>{% endif %}</a>
+                                </span>
+                            </div>
+                            <div id="{{ contributor.id }}" class="panel-collapse in">
+                        {% endif %}
+                                <div class="panel-body">
+                                    {% for group in sections_grouped %}
+                                        {% include "results_course_detail_questionnaires.html" %}
+                                    {% endfor %}
+                                </div>
+                            </div>
                     </div>
-                    <div class="panel-body nobottompadding">
-                        {% for group in sections_grouped %}
-                            {% include "results_course_detail_questionnaires.html" %}
-                        {% endfor %}
-                    </div>
+                {% endfor %}
                 </div>
-            {% endfor %}
+            </div>
         </div>
-    </div>
-{% endblock %}
-
-{% block scripts %}
-    {{ block.super }}
-    <script type="text/javascript">
-        $('.twipsify').tooltip({
-            html: true,
-            placement: 'left',
-            title: 'data-twipsy'
-        });
-    </script>
+    {% endif %}
 {% endblock %}

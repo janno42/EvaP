@@ -1,8 +1,7 @@
 html,
 body {
     height: 100%;
-    padding-top: 40px;
-    /* The html and body elements cannot have any padding or margin. */
+    padding-top: 50px; /* navbar height */
 }
 
 .navbar > .container {
@@ -15,6 +14,10 @@ body {
 
 .navbar-brand {
     padding: 0;
+}
+
+.navbar-brand-image {
+    height: 50px;
 }
 
 /* Wrapper for page content to push down footer */
@@ -35,25 +38,6 @@ body {
 }
 
 /*-----------------------------------------*/
-
-.custom-combobox {
-    position: relative;
-    display: inline-block;
-}
-.custom-combobox-toggle {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    margin-left: -1px;
-    padding: 0;
-    /* support: IE7 */
-    *height: 1.7em;
-    *top: 0.1em;
-}
-.custom-combobox-input {
-    margin: 0;
-    padding: 6px 12px;
-}
 
 /*-----------------------------------------*/
 
@@ -76,7 +60,7 @@ table#question_table textarea {
     resize: vertical;
 }
 
-ul.inputs-list {
+ul.inputs-list, .exportsheet ul {
     list-style-type: none;
     padding-left: 0px;
 }
@@ -104,16 +88,21 @@ td.center, th.center {
 table.vertically-aligned tr td {
     vertical-align: middle;
 }
-
-td#vertically-aligned {
-    vertical-align: middle;
+td.vote-question.text-field {
+    vertical-align: top;
 }
 
 .distribution-bar {
-    border: 1px solid #DDDDDD;
     overflow: hidden;
     white-space: nowrap;
+    border-radius: 3px;
 }
+
+.distribution-bar div {
+    display: inline-block;
+}
+
+.distribution-bar div:last-child { width: 100% !important; }
 
 .vote-bg-1 { background: #88bf4a; }
 .vote-bg-2 { background: #bbd154; }
@@ -121,15 +110,95 @@ td#vertically-aligned {
 .vote-bg-4 { background: #f29e58; }
 .vote-bg-5 { background: #eb595a; }
 
+.grade-bg {
+    display: inline-block;
+    border-radius: 3px;
+    width: 45px;
+}
+
+.grade-bg-result-bar {
+    float: right;
+    border-radius: 3px;
+    width: 30px;
+    margin-left: 10px;
+}
+
+.grade-bg-result-bar-count {
+    float: left;
+    border-radius: 3px;
+    width: 50px;
+    margin-right: 20px;
+    background-color: #31708f;
+    color: #ffffff;
+}
+
+.grade-bg-disabled {
+    background-color: #ddd;
+}
+
+.deviation-bg {
+    display: inline-block;
+    border-radius: 3px;
+    width: 45px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #888;
+}
+
+.deviation-bg-disabled {
+    background-color: #ddd;
+}
+
 @media print {
+    .no-break {
+        page-break-inside: avoid;
+    }
     body {
         padding: 0;
     }
-    div.topbar {
+    div.container {
+        padding-left: 0px;
+        padding-right: 0px;
+    }
+    .print-brand-image {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        height: 40px;
+    }
+    nav, #footer, .breadcrumb, .close {
         display: none;
     }
-    footer {
-        display: none;
+    td, th, p {
+        font-size: 80%;
+        page-break-after: avoid;
+    }
+    h2 {
+        font-size: 20px;
+        page-break-after: avoid;
+    }
+    h4 {
+        font-size: 12px;
+        page-break-after: avoid;
+    }
+    .panel-title {
+        font-size: 12px;
+    }
+    .panel-heading {
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+    .grade-bg-result-bar-count {
+        width: 35px;
+    }
+    .grade-bg {
+        width: 30px;
+    }
+    .deviation-bg {
+        width: 30px;
+    }
+    .alert {
+        padding: 5px;
     }
 }
 
@@ -150,32 +219,32 @@ td.vote-question.choice-error {
     color: #a53e3f;
 }
 
-td.vote-inputs {
+div.vote-inputs {
     width: 100%;
 }
 
-td.vote-inputs label.choice-error {
+div.vote-inputs label.choice-error {
     box-shadow: 0px 0px 8px #eb595a;
 }
 
-td.vote-inputs > label:nth-of-type(1) { color: #5f8634; }
-td.vote-inputs > label:nth-of-type(2) { color: #83933b; }
-td.vote-inputs > label:nth-of-type(3) { color: #a89f3e; }
-td.vote-inputs > label:nth-of-type(4) { color: #aa6f3e; }
-td.vote-inputs > label:nth-of-type(5) { color: #a53e3f; }
+div.vote-inputs > label:nth-of-type(1) { color: #5f8634; }
+div.vote-inputs > label:nth-of-type(2) { color: #83933b; }
+div.vote-inputs > label:nth-of-type(3) { color: #a89f3e; }
+div.vote-inputs > label:nth-of-type(4) { color: #aa6f3e; }
+div.vote-inputs > label:nth-of-type(5) { color: #a53e3f; }
 
-td.vote-inputs > label:nth-of-type(1).active { color: #000000; background-color: #88bf4a; }
-td.vote-inputs > label:nth-of-type(2).active { color: #000000; background-color: #bbd154; }
-td.vote-inputs > label:nth-of-type(3).active { color: #000000; background-color: #efe258; }
-td.vote-inputs > label:nth-of-type(4).active { color: #000000; background-color: #f29e58; }
-td.vote-inputs > label:nth-of-type(5).active { color: #000000; background-color: #eb595a; }
+div.vote-inputs > label:nth-of-type(1).active { color: #000000; background-color: #88bf4a; }
+div.vote-inputs > label:nth-of-type(2).active { color: #000000; background-color: #bbd154; }
+div.vote-inputs > label:nth-of-type(3).active { color: #000000; background-color: #efe258; }
+div.vote-inputs > label:nth-of-type(4).active { color: #000000; background-color: #f29e58; }
+div.vote-inputs > label:nth-of-type(5).active { color: #000000; background-color: #eb595a; }
 
-td.vote-inputs > textarea {
+div.vote-inputs > textarea {
     width: 99%;
     height: 100px;
 }
 
-td.preview > textarea {
+div.preview > textarea {
     height: 60px;
 }
 
@@ -205,7 +274,7 @@ originally taken from https://gist.github.com/matthiasg/6153853
 
 Side notes for calling out things
 -------------------------------------------------- */
- 
+
 /* Base styles (regardless of theme) */
 .bs-callout {
     margin: 10px 0px 20px 0px;
@@ -222,15 +291,15 @@ Side notes for calling out things
 .bs-callout .highlight {
     background-color: #fff;
 }
- 
+
 /* Themes for different contexts */
 .bs-callout-danger {
-    background-color: #fcf2f2;
-    border-color: #dFb5b4;
+    background-color: #fce4e4;
+    border-color: #eb595a;
 }
 .bs-callout-warning {
-    background-color: #fefbed;
-    border-color: #f1e7bc;
+    background-color: #fbf7d0;
+    border-color: #efe258;
 }
 .bs-callout-info {
     background-color: #d9edf7;
@@ -240,8 +309,31 @@ Side notes for calling out things
 
 
 
+
+.label-info {
+    color: white;
+    background-color: #31708f;
+}
+
+.btn-primary {
+    background-color: #31708f;
+}
+
+.btn-option {
+    background-color: #ffffff;
+    border-color: #cccccc;
+    color: #000000;
+}
+.btn-option.active {
+    background-color: #31708f;
+    color: #ffffff;
+}
+.btn-option.disabled {
+    opacity: 0.6;
+}
+
 .participants-warning {
-    opacity: 0.3;
+    opacity: 0.4;
 }
 
 .glyphicon.participants-warning {
@@ -252,13 +344,9 @@ Side notes for calling out things
     padding-left: 3px;
 }
 
-.inline-headers h4, .inline-headers p {
+.inline-headers span, .inline-headers p {
   display: inline-block;
   vertical-align: baseline;
-}
-
-.questionnaire-warning {
-    margin-top:10px;
 }
 
 .button-menu {
@@ -290,4 +378,152 @@ Side notes for calling out things
 
 .form-field > .error {
     box-shadow: 0px 0px 8px #eb595a;
+}
+
+.panel-heading .accordion-toggle:before {
+    /* symbol for open panels */
+    font-family: 'Glyphicons Halflings';
+    content: "\e114";  /* chevron-down */
+    float: left;
+    color: gray;
+    margin-right: 10px;
+}
+.panel-heading .accordion-toggle.collapsed:before {
+    /* symbol for collapsed panels */
+    content: "\e080"; /* chevron-right */
+}
+
+.evap-progress-bar-container {
+    padding-right: 40px;
+    display: block;
+}
+
+.evap-progress-bar-back {
+    background: #d9edf7;
+    border-radius: 3px;
+    width: 100%;
+    position: relative;
+    display: inline-block;
+}
+
+.evap-progress-bar-front {
+    background: #31708f;
+    border-radius: 3px;
+    position: relative;
+    display: inline-block;
+}
+
+.evap-progress-bar-bartext {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    color: #ffffff;
+    width: 100%;
+    text-align: center;
+    text-shadow: 0px 0px 4px #31708f, 0px 0px 4px #31708f, 1px 1px 2px #31708f;
+}
+
+.evap-progress-bar-text {
+    color: #000000;
+    text-align: left;
+    float: right;
+    width: 36px;
+}
+
+.multi-progress-bar .evap-progress-bar-container {
+    padding-bottom: 3px;
+}
+
+.deactivate {
+    opacity: 0.4;
+}
+
+.light-link {
+    opacity: 0.2;
+    color: black;
+}
+
+.panel table:last-child,
+.panel div:last-child {
+    margin-bottom: 0px;
+}
+
+.comment-link {
+    color: black;
+}
+.comment-original {
+    color: #aaaaaa;
+}
+
+div.disabled-tooltip {
+    display: inline-block;
+}
+
+.tooltip-inner {
+    max-width: 250px;
+}
+
+.grade-course-table tr {
+    height: 57px;
+}
+
+li.menu-indent {
+    padding-left: 20px;
+}
+
+.sortable-ghost {
+    background: #F0F0F0;
+}
+
+.table-striped tbody tr.sortable-ghost {
+    background: #E5E5E5;
+}
+
+.settings-form select {
+    width: 100%;
+}
+
+.course-contributor {
+    font-style: italic;
+    padding-bottom: 6px;
+}
+
+.sortable .movable {
+    width: 10px;
+}
+
+.sortable .movable span.movable-icon {
+    font-size: 16px;
+    top: 8px;
+    cursor:move;
+}
+
+.inline {
+    display: inline;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.no-padding {
+    padding: 0;
+}
+
+.text-answer li,a {
+    word-wrap: break-word;
+}
+
+.total-stats {
+    font-weight: bold;
+    background-color: #F0F0F0;
+}
+
+/* feedback form + button */
+
+#feedback-button{
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    border: none;
 }

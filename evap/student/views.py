@@ -1,4 +1,5 @@
-from django.conf import settings
+from collections import OrderedDict
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -12,22 +13,27 @@ from evap.evaluation.tools import STUDENT_STATES_ORDERED
 from evap.student.forms import QuestionsForm
 from evap.student.tools import make_form_identifier
 
-from collections import OrderedDict
 
 @participant_required
 def index(request):
     # retrieve all courses, where the user is a participant and that are not new
     courses = list(set(Course.objects.filter(participants=request.user).exclude(state="new")))
     voted_courses = list(set(Course.objects.filter(voters=request.user)))
-    due_courses = list(set(Course.objects.filter(participants=request.user, state='inEvaluation').exclude(voters=request.user)))
+    due_courses = list(set(Course.objects.filter(participants=request.user, state='in_evaluation').exclude(voters=request.user)))
 
-    sorter = lambda course: (STUDENT_STATES_ORDERED.keys().index(course.student_state), course.vote_end_date, course.name)
+    sorter = lambda course: (list(STUDENT_STATES_ORDERED.keys()).index(course.student_state), course.vote_end_date, course.name)
     courses.sort(key=sorter)
 
     semesters = Semester.objects.all()
     semester_list = [dict(semester_name=semester.name, id=semester.id, courses=[course for course in courses if course.semester_id == semester.id]) for semester in semesters]
 
-    return render(request, "student_index.html", dict(semester_list=semester_list, voted_courses=voted_courses, due_courses=due_courses))
+    template_data = dict(
+        semester_list=semester_list,
+        voted_courses=voted_courses,
+        due_courses=due_courses,
+        can_download_grades=request.user.can_download_grades,
+    )
+    return render(request, "student_index.html", template_data)
 
 
 def vote_preview(request, course):
@@ -37,14 +43,14 @@ def vote_preview(request, course):
     """
     form_groups = helper_create_voting_form_groups(request, course.contributions.all())
     course_form_group = form_groups.pop(course.general_contribution)
-    contributor_form_groups = list((contribution.contributor, form_group, False) for contribution, form_group in form_groups.items())
+    contributor_form_groups = list((contribution.contributor, contribution.label, form_group, False) for contribution, form_group in form_groups.items())
 
     template_data = dict(
-            errors_exist=False,
-            course_form_group=course_form_group,
-            contributor_form_groups=contributor_form_groups,
-            course=course,
-            preview=True)
+        errors_exist=False,
+        course_form_group=course_form_group,
+        contributor_form_groups=contributor_form_groups,
+        course=course,
+        preview=True)
     return render(request, "student_vote.html", template_data)
 
 
@@ -64,14 +70,15 @@ def vote(request, course_id):
 
         course_form_group = form_groups.pop(course.general_contribution)
 
-        contributor_form_groups = list((contribution.contributor, form_group, helper_has_errors(form_group)) for contribution, form_group in form_groups.items())
+        contributor_form_groups = list((contribution.contributor, contribution.label, form_group, helper_has_errors(form_group)) for contribution, form_group in form_groups.items())
 
         template_data = dict(
-                errors_exist=errors_exist,
-                course_form_group=course_form_group,
-                contributor_form_groups=contributor_form_groups,
-                course=course,
-                preview=False)
+            errors_exist=errors_exist,
+            course_form_group=course_form_group,
+            contributor_form_groups=contributor_form_groups,
+            course=course,
+            participants_warning=course.num_participants <= 5,
+            preview=False)
         return render(request, "student_vote.html", template_data)
 
     # all forms are valid, begin vote operation
@@ -83,18 +90,17 @@ def vote(request, course_id):
                     identifier = make_form_identifier(contribution, questionnaire, question)
                     value = questionnaire_form.cleaned_data.get(identifier)
 
-                    if type(value) in [str, unicode]:
-                        value = value.strip()
-
-                    if value == 6: # no answer
-                        value = None
-
-                    # store the answer if one was given
-                    if value:
-                        question.answer_class.objects.create(
-                            contribution=contribution,
-                            question=question,
-                            answer=value)
+                    if question.is_text_question:
+                        if value:
+                            question.answer_class.objects.create(
+                                contribution=contribution,
+                                question=question,
+                                answer=value)
+                    else:
+                        if value != 6:
+                            answer_counter, __ = question.answer_class.objects.get_or_create(contribution=contribution, question=question, answer=value)
+                            answer_counter.add_vote()
+                            answer_counter.save()
 
         # remember that the user voted already
         course.voters.add(request.user)
@@ -102,17 +108,19 @@ def vote(request, course_id):
         course.was_evaluated(request)
 
     messages.success(request, _("Your vote was recorded."))
-    return redirect('evap.student.views.index')
+    return redirect('student:index')
 
 
 def helper_create_form_group(request, contribution):
     return list(QuestionsForm(request.POST or None, contribution=contribution, questionnaire=questionnaire) for questionnaire in contribution.questionnaires.all())
+
 
 def helper_create_voting_form_groups(request, contributions):
     form_groups = OrderedDict()
     for contribution in contributions:
         form_groups[contribution] = helper_create_form_group(request, contribution)
     return form_groups
+
 
 def helper_has_errors(form_group):
     return any(form.errors for form in form_group)

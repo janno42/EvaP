@@ -1,13 +1,6 @@
-from evap.rewards.models import RewardPointRedemption, RewardPointRedemptionEvent
-
 from django.utils.translation import ugettext as _
 
-from collections import OrderedDict
-from collections import defaultdict
-import datetime
 import xlwt
-
-from operator import itemgetter
 
 from evap.results.exporters import writen, writec
 
@@ -17,18 +10,18 @@ class ExcelExporter(object):
     def __init__(self, redemptions_by_user):
         self.redemptions_by_user = redemptions_by_user
 
-    styles = {
-        'default':       xlwt.Style.default_style,
-        'bold':          xlwt.easyxf('font: bold on'),
-    }
+        self.styles = {
+            'default':       xlwt.Style.default_style,
+            'bold':          xlwt.easyxf('font: bold on'),
+        }
+
+        self.workbook = xlwt.Workbook()
+        self.sheet = self.workbook.add_sheet(_("Redemptions"))
+        self.row = 0
+        self.col = 0
 
     def export(self, response):
         redemptions_dict = self.redemptions_by_user
-        
-        self.workbook = xlwt.Workbook()
-        self.sheet = self.workbook.add_sheet(_(u"Redemptions"))
-        self.row = 0
-        self.col = 0
 
         writec(self, _("Last name"), "bold")
         writec(self, _("First name"), "bold")

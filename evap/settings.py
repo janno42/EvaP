@@ -20,17 +20,15 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 DEBUG = True
 
-TEMPLATE_DEBUG = DEBUG
-
 # Very helpful but eats a lot of performance on sql-heavy pages.
-# Works only with DEBUG = True.
+# Works only with DEBUG = True and Django's development server (so no apache).
 ENABLE_DEBUG_TOOLBAR = False
 
 
 ### EvaP logic
 
 # key authentication settings
-LOGIN_KEY_VALIDITY = 210 # days, so roughly 7 months
+LOGIN_KEY_VALIDITY = 210  # days, so roughly 7 months
 
 # minimum answers needed for publishing
 MIN_ANSWER_COUNT = 2
@@ -63,27 +61,47 @@ INTERNAL_USERNAMES_MAX_LENGTH = 20
 IMPORTER_GRADED_YES = "yes"
 IMPORTER_GRADED_NO = "no"
 
+# the default descriptions for grade documents
+DEFAULT_FINAL_GRADES_DESCRIPTION_EN = "Final grades"
+DEFAULT_MIDTERM_GRADES_DESCRIPTION_EN = "Midterm grades"
+DEFAULT_FINAL_GRADES_DESCRIPTION_DE = "Endnoten"
+DEFAULT_MIDTERM_GRADES_DESCRIPTION_DE = "Zwischennoten"
 
 ### Installation specific settings
 
 # People who get emails on errors.
-ADMINS = (
+ADMINS = [
     # ('Your Name', 'your_email@example.com'),
-)
+]
 
-ALLOWED_HOSTS = []
+# localhost is listed for easier development. Remove it in production environments.
+ALLOWED_HOSTS = ["localhost"]
+
+# The page URL that is used in email templates.
+PAGE_URL = "localhost:8000"
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = 'k9-)vh3c_dtm6bpi7j(!*s_^91v0!ekjt_#o&0i$e22tnn^-vb'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3', # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': os.path.join(BASE_DIR, 'database.sqlite3'), # Or path to database file if using sqlite3.
-        'USER': '',                             # Not used with sqlite3.
-        'PASSWORD': '',                         # Not used with sqlite3.
-        'HOST': '',                             # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': '',                             # Set to empty string for default. Not used with sqlite3.
+        'ENGINE': 'django.db.backends.sqlite3',  # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
+        'NAME': os.path.join(BASE_DIR, 'database.sqlite3'),  # Or path to database file if using sqlite3.
+        'USER': '',                              # Not used with sqlite3.
+        'PASSWORD': '',                          # Not used with sqlite3.
+        'HOST': '',                              # Set to empty string for localhost. Not used with sqlite3.
+        'PORT': '',                              # Set to empty string for default. Not used with sqlite3.
+        'CONN_MAX_AGE': 600,
+    }
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'evap_db_cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000  # note that the results alone need one entry per course
+        }
     }
 }
 
@@ -97,28 +115,59 @@ REPLY_TO_EMAIL = DEFAULT_FROM_EMAIL
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Config for legal notice
+# The HTML file which should be used must be located in evap\templates\legal_notice_text.html
+LEGAL_NOTICE_ACTIVE = False
 
-# Kerberos realm and service
-ENABLE_KERBEROS = False
-if (ENABLE_KERBEROS):
-    KRB5_REALM = 'EXAMPLE.COM'
-    KRB5_SERVICE = 'krbtgt@AS.EXAMPLE.COM'
-    INSTALLED_APPS += ('django_auth_kerberos',)
-    MIDDLEWARE_CLASSES += ('django_auth_kerberos.backends.KrbBackend',)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '[%(asctime)s] %(levelname)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR + '/logs/evap.log',
+            'maxBytes': 1024 * 1024 * 10,
+            'backupCount': 5,
+            'formatter': 'default',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+        }
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'mail_admins'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'evap': {
+            'handlers': ['file', 'mail_admins'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
 
 ### Application definition
 
 AUTH_USER_MODEL = 'evaluation.UserProfile'
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites', # unused. left here to not break the test data.
     'widget_tweaks',
     'evap.evaluation',
     'evap.staff',
@@ -126,39 +175,59 @@ INSTALLED_APPS = (
     'evap.student',
     'evap.contributor',
     'evap.rewards',
-)
+    'evap.grades',
+    'compressor',
+    'django_extensions',
+]
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE_CLASSES = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'evap.evaluation.auth.RequestAuthMiddleware',
-    'evap.evaluation.403.Django403Middleware',
-)
+]
 
-TEMPLATE_CONTEXT_PROCESSORS = (
-    "django.contrib.auth.context_processors.auth",
-    "django.core.context_processors.debug",
-    "django.core.context_processors.i18n",
-    "django.core.context_processors.media",
-    "django.core.context_processors.static",
-    "django.core.context_processors.request",
-    "django.contrib.messages.context_processors.messages",
-)
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [
+            os.path.join(BASE_DIR, "templates"),
+        ],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                "django.contrib.auth.context_processors.auth",
+                "django.template.context_processors.debug",
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.request",
+                "django.contrib.messages.context_processors.messages",
+                "evap.context_processors.legal_notice_active",
+                "evap.context_processors.tracker_url",
+            ],
+        },
+    },
+]
+# enable cached template loader when DEBUG == False
+if not DEBUG:
+    TEMPLATES[0]['APP_DIRS'] = False
+    TEMPLATES[0]['OPTIONS']['loaders'] = [
+        ('django.template.loaders.cached.Loader', [
+            'django.template.loaders.filesystem.Loader',
+            'django.template.loaders.app_directories.Loader',
+        ]),
+    ]
 
-AUTHENTICATION_BACKENDS = (
+AUTHENTICATION_BACKENDS = [
     'evap.evaluation.auth.RequestAuthUserBackend',
     'django.contrib.auth.backends.ModelBackend',
-)
-
-# Additional locations of templates
-TEMPLATE_DIRS = (
-    os.path.join(BASE_DIR, "templates"),
-)
+]
 
 ROOT_URLCONF = 'evap.urls'
 
@@ -172,7 +241,7 @@ LOGIN_URL = "/"
 
 ### Internationalization
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
 
 TIME_ZONE = 'Europe/Berlin'
 
@@ -182,21 +251,21 @@ USE_L10N = True
 
 USE_TZ = False
 
-LOCALE_PATHS = (
+LOCALE_PATHS = [
     os.path.join(BASE_DIR, "locale"),
-)
+]
 
-LANGUAGES = (
+LANGUAGES = [
     ('en', "English"),
     ('de', "Deutsch"),
-)
+]
 
 USERNAME_REPLACEMENTS = [
     (' ', ''),
-    (u'ä', 'ae'),
-    (u'ö', 'oe'),
-    (u'ü', 'ue'),
-    (u'ß', 'ss'),
+    ('ä', 'ae'),
+    ('ö', 'oe'),
+    ('ü', 'ue'),
+    ('ß', 'ss'),
 ]
 
 
@@ -206,12 +275,18 @@ USERNAME_REPLACEMENTS = [
 STATIC_URL = '/static/'
 
 # Additional locations of static files
-STATICFILES_DIRS = (
+STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
-)
+]
+
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+    "compressor.finders.CompressorFinder",
+]
 
 # Absolute path to the directory static files should be collected to.
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "static_collected")
 
 
 ### User-uploaded files
@@ -222,30 +297,52 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "upload")
 # URL that handles the media served from MEDIA_ROOT.
 MEDIA_URL = '/media/'
 
+# the backend used for downloading attachments
+# see https://github.com/johnsensible/django-sendfile for further information
+SENDFILE_BACKEND = 'sendfile.backends.simple'
+
 
 ### Other
+
+# django-compressor settings
+COMPRESS_ENABLED = not DEBUG
+COMPRESS_OFFLINE = False
+COMPRESS_PRECOMPILERS = (
+    ('text/less', 'lessc {infile} {outfile}'),
+)
+COMPRESS_CACHEABLE_PRECOMPILERS = ('text/less',)
 
 # Apply the correct bootstrap css class to django's error messages
 MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
 
-# Django debug toolbar settings
+# make generation of Question objects work, see https://github.com/vandersonmota/model_mommy/issues/231
+MOMMY_CUSTOM_FIELDS_GEN = {
+    'django.db.models.fields.proxy.OrderWrt': int,
+}
+
+# Create a localsettings.py if you want to locally override settings
+# and don't want the changes to appear in 'git status'.
+try:
+    from evap.localsettings import *
+except ImportError:
+    pass
+
 TESTING = 'test' in sys.argv
+
+# speed up tests
+if TESTING:
+    DATABASES['default'] = {'ENGINE': 'django.db.backends.sqlite3'}  # use sqlite
+    COMPRESS_PRECOMPILERS = ()  # disable compressor completely
+
+# Django debug toolbar settings
 if DEBUG and not TESTING and ENABLE_DEBUG_TOOLBAR:
     DEBUG_TOOLBAR_PATCH_SETTINGS = False
-    INSTALLED_APPS += ('debug_toolbar',)
-    MIDDLEWARE_CLASSES = ('debug_toolbar.middleware.DebugToolbarMiddleware',) + MIDDLEWARE_CLASSES
+    INSTALLED_APPS += ['debug_toolbar']
+    MIDDLEWARE_CLASSES = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE_CLASSES
     def show_toolbar(request):
         return True
     DEBUG_TOOLBAR_CONFIG = {
         'SHOW_TOOLBAR_CALLBACK': 'evap.settings.show_toolbar',
     }
-
-
-# Create a localsettings.py if you want to locally override settings
-# and don't want the changes to appear in 'git status'.
-_LOCAL_SETTINGS_FILENAME = os.path.join(BASE_DIR, "localsettings.py")
-if os.path.exists(_LOCAL_SETTINGS_FILENAME):
-    exec(compile(open(_LOCAL_SETTINGS_FILENAME).read(), _LOCAL_SETTINGS_FILENAME, 'exec'))
-del _LOCAL_SETTINGS_FILENAME

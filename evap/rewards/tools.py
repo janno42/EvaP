@@ -4,10 +4,11 @@ from django.db import transaction
 from django.utils.translation import ugettext as _
 from django.dispatch import receiver
 
-from evap.evaluation.auth import login_required
+from django.contrib.auth.decorators import login_required
 from evap.evaluation.models import Course
 
-from evap.rewards.models import RewardPointGranting, RewardPointRedemption, RewardPointRedemptionEvent, SemesterActivation
+from evap.rewards.models import RewardPointGranting, RewardPointRedemption, RewardPointRedemptionEvent, SemesterActivation, NoPointsSelected, NotEnoughPoints
+
 
 @login_required
 @transaction.atomic
@@ -15,8 +16,11 @@ def save_redemptions(request, redemptions):
     total_points_available = reward_points_of_user(request.user)
     total_points_redeemed = sum(redemptions.values())
 
-    if total_points_redeemed == 0 or total_points_redeemed > total_points_available:
-        return False
+    if total_points_redeemed <= 0:
+        raise NoPointsSelected(_("You cannot redeem 0 points."))
+
+    if total_points_redeemed > total_points_available:
+        raise NotEnoughPoints(_("You don't have enough reward points."))
 
     for event_id in redemptions:
         if redemptions[event_id] > 0:
@@ -26,7 +30,6 @@ def save_redemptions(request, redemptions):
                 event=RewardPointRedemptionEvent.objects.get(id=event_id)
             )
             redemption.save()
-    return True
 
 
 def can_user_use_reward_points(user):
@@ -36,7 +39,7 @@ def can_user_use_reward_points(user):
 def reward_points_of_user(user):
     reward_point_grantings = RewardPointGranting.objects.filter(user_profile=user)
     reward_point_redemptions = RewardPointRedemption.objects.filter(user_profile=user)
-    
+
     count = 0
     for granting in reward_point_grantings:
         count += granting.value
@@ -57,8 +60,12 @@ def grant_reward_points(sender, **kwargs):
     # has the semester been activated for reward points?
     if not is_semester_activated(semester):
         return
-    # does the user not participate in any more courses in this semester?
-    if Course.objects.filter(participants=request.user, semester=semester).exclude(voters=request.user).exists():
+    # does the user have at least one required course in this semester?
+    required_courses = Course.objects.filter(participants=request.user, semester=semester, is_required_for_reward=True)
+    if not required_courses.exists():
+        return
+    # does the user not participate in any more required courses in this semester?
+    if required_courses.exclude(voters=request.user).exists():
         return
     # did the user not already get reward points for this semester?
     if not RewardPointGranting.objects.filter(user_profile=request.user, semester=semester):

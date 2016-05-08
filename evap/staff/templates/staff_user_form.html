@@ -7,32 +7,10 @@
 
 {% block subtitle %}
     {{ block.super }}
-    <li><a href="{% url "evap.staff.views.user_index" %}">{% trans "Users" %}</a></li>
+    <li><a href="{% url "staff:user_index" %}">{% trans "Users" %}</a></li>
     {% if object.id %}
         <li>{{ object.full_name }}</li>
     {% endif %}
-{% endblock %}
-
-{% block scripts %}
-    {{ block.super }}
-
-    <script type="text/javascript">
-        $(document).ready(function() {
-            if ($.fn.button.noConflict != undefined) {
-                $.fn.button.noConflict();
-            }
-
-            $("select[multiple='multiple']").each(function(i,e) {
-                //$(e).width($(e).width());
-                $(e).multiselect({ locale: "{{ LANGUAGE_CODE }}" });
-            });
-
-            $("#id_is_staff").click(function() {
-                if($("#id_is_staff").is(":checked"))
-                    $("#id_is_superuser").prop('checked', true);
-            });
-        });
-    </script>
 {% endblock %}
 
 {% block content %}
@@ -43,34 +21,32 @@
         </div>
     </div>
 
-    <form method="POST" class="form-horizontal multiselect-form" enctype="multipart/form-data">
+    <form id="user-form" method="POST" enctype="multipart/form-data" class="form-horizontal multiselect-form">
     {% csrf_token %}
     {{ form.as_div }}
 
     {% if object.pk %}
         <fieldset>
             <legend>{% trans "Represented Users" %}</legend>
-            <ul>
-                {% include_user_list_with_links form.instance.represented_users.all %}
-            </ul>
+            {% include_user_list_with_links form.instance.represented_users.all %}
         </fieldset>
         <fieldset>
             <legend>{% trans "CC-User for" %}</legend>
-            <ul>
-                {% include_user_list_with_links form.instance.ccing_users.all %}
-            </ul>
+            {% include_user_list_with_links form.instance.ccing_users.all %}
         </fieldset>
         <fieldset>
             <legend>{% trans "Courses contributing to (active semester)" %}</legend>
-            <ul>
-                {% if courses_contributing_to %}
+            {% if courses_contributing_to %}
+                <ul>
                     {% for course in courses_contributing_to %}
                         <li>{{ course.name }}</li>
                     {% endfor %}
-                {% else %}
+                </ul>
+            {% else %}
+                <p>
                     <i>{% trans "No courses" %}</i>
-                {% endif %}
-            </ul>
+                </p>
+            {% endif %}
         </fieldset>
     {% endif %}
     <div class="form-group well">

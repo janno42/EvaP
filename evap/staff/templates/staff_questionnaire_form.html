@@ -3,34 +3,9 @@
 {% load i18n %}
 {% load static %}
 
-{% block scripts %}
-    {{ block.super }}
-    <script type="text/javascript">
-    $(document).ready(function() {
-        if ($.fn.button.noConflict != undefined) {
-            $.fn.button.noConflict();
-        }
-
-        $(".multiselect-form select[multiple='multiple']").each(function(i,e) {
-            $(e).width($(e).width());
-            $(e).multiselect({ locale: "{{ LANGUAGE_CODE }}"});
-        });
-
-        $('#question_table tbody tr').formset({
-            prefix: 'question_set',
-            deleteText: '{% trans "remove" %}',
-            addText: '{% trans "add another" %}'
-        });
-    });
-    </script>
-
-    <!-- prevent from accendential closing -->
-        <script type="text/javascript" src="{% get_static_prefix %}js/leave.js"></script>
-{% endblock %}
-
 {% block content %}
     {{ block.super }}
-    <form method="POST" class="form-horizontal">
+    <form id="questionnaire-form" method="POST" class="form-horizontal select2form">
         {% csrf_token %}
         <fieldset>
             <legend>{% trans "General Options" %}</legend>
@@ -44,11 +19,10 @@
             <table id="question_table" class="table">
                 <thead>
                     <tr>
-                        {% for field in formset.form %}
-                            <th>{{ field.label }}</th>
-                        {% endfor %}
-                        <th></th>
-                        <th>{% trans "Delete?" %}</th>
+                        <th class="col-sm-4">{% trans "Question text (German)" %}</th>
+                        <th class="col-sm-4">{% trans "Question text (English)" %}</th>
+                        <th class="col-sm-3">{% trans "Question type" %}</th>
+                        <th class="col-sm-1"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -57,10 +31,13 @@
                             <tr><td colspan=100>{{ form_element.non_field_errors }}</td></tr>
                         {% endif %}
 
-                        <tr>
-                        {% for field in form_element %}
-                            <td>{{field.errors}} {{ field }}</td>
-                        {% endfor %}
+                        <tr class="select2tr">
+                            {% for field in form_element.hidden_fields %}
+                                {{ field }}
+                            {% endfor %}
+                            {% for field in form_element.visible_fields %}
+                                <td>{{ field.errors }} {{ field }}</td>
+                            {% endfor %}
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -68,8 +45,24 @@
         </fieldset>
         <div class="form-group well">
             <div class="col-sm-offset-2 col-sm-6">
-                <input type="submit" value="{% trans "Save questionnaire" %}" onclick="submitFormOkay = true;" class="btn btn-primary"/>
+                <input type="submit" value="{% trans "Save questionnaire" %}" onclick="preventAccidentalClosing = false;" class="btn btn-primary"/>
             </div>
         </div>
     </form>
+{% endblock %}
+
+{% block on_document_ready %}
+    $('#question_table tbody tr').formset({
+        prefix: 'question_set',
+        deleteText: '{% trans "remove" %}',
+        addText: '{% trans "add another" %}',
+        added: function(row) {
+            apply_select2(row.find("select"));
+        },
+        formTemplate: (".form-template")
+    });
+{% endblock %}
+
+{% block additional_javascript %}
+    <script type="text/javascript"> preventAccidentalClosing = true; </script>
 {% endblock %}

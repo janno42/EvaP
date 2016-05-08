@@ -1,18 +1,18 @@
 EvaP - Evaluation Platform
 ==========================
 
-|build| |dependencies| |landscape| 
+|build| |dependencies| |landscape| |coveralls|
 
 What is EvaP?
 -------------
 
 EvaP is the course evaluation system used internally at Hasso Plattner Institute.
 
-For the documentation, please look into the *docs* subdirectory or its online version: https://evap.readthedocs.org.
+For the documentation, please see our `wiki <https://github.com/fsr-itse/EvaP/wiki>`_.
 
 Installation
 ------------
-The vagrant setup is shown here. For manual installation instructions and production deployment see http://evap.readthedocs.org/en/latest/installation.html.
+The vagrant setup is shown here. For manual installation instructions and production deployment please see the `wiki page on installation <https://github.com/fsr-itse/EvaP/wiki/Installation>`_.
 
 (0) Checkout EvaP and its submodules::
 
@@ -21,6 +21,8 @@ The vagrant setup is shown here. For manual installation instructions and produc
 (1) After installing Vagrant_, run in your EvaP root directory::
 
         vagrant up
+        vagrant ssh
+        ./manage.py run
 
 (2) Open your browser::
 
@@ -51,7 +53,7 @@ You can add yourself to the list at http://lists.myhpi.de/HQowKfvd70oVOTPEWG2UhB
 License
 -------
 
-See `docs/License.rst <docs/license.rst>`_.
+See `LICENSE.rst <LICENSE.rst>`_.
 
 
 
@@ -65,3 +67,6 @@ See `docs/License.rst <docs/license.rst>`_.
 .. |landscape| image:: https://landscape.io/github/fsr-itse/EvaP/master/landscape.png
         :alt: Code Health
         :target: https://landscape.io/github/fsr-itse/EvaP/master
+.. |coveralls| image:: https://coveralls.io/repos/github/fsr-itse/EvaP/badge.svg?branch=master
+        :alt: Code Coverage
+        :target: https://coveralls.io/github/fsr-itse/EvaP?branch=master

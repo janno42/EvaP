@@ -3,56 +3,44 @@
 {% load i18n %}
 {% load morefilters %}
 
-{% block scripts %}
-    {{ block.super }}
-
-    <script type="text/javascript">
-        $(document).ready(function() {
-            $(".twipsify").tooltip({container: 'body'});
-        });
-    </script>
-{% endblock %}
-
 {% block content %}
     {{ block.super }}
 
-    <small>
-        <div class="bs-callout bs-callout-info">
-            <b>{% trans "Delegates" %}</b><br />
-            {% blocktrans %}Lecturers can assign delegates to help them with the preparation of the evaluation.{% endblocktrans %}
-            {% if user.is_editor %}
-                {% blocktrans %}You can assign your own delegates in your profile.{% endblocktrans %} <a href="{% url "evap.contributor.views.profile_edit" %}" class="btn btn-xs btn-default">{% trans "Edit profile" %}</a><br />
-            {% endif %}
-            {% if delegated_courses %}
-                {% blocktrans %}Courses from lecturers who set you as a delegate are marked with a label below.{% endblocktrans %}<br />
-            {% endif %}
-            <em>{% trans "More details:" %} <a href="/faq#15">{% trans "FAQ/Delegates" %}</a></em><br />
-            <br />
-            <b>{% trans "States of the courses" %}</b><br />
-            {% blocktrans %}You can only edit courses which are in the state "prepared". After you approved a course it will automatically change to the state "lecturer approved" and your preparation is finished.{% endblocktrans %}<br />
-            <em>{% trans "More details:" %} <a href="/faq#18">{% trans "FAQ/States" %}</a></em><br />
-            <br />
-            <b>{% trans "Evaluation Results" %}</b><br />
-            {% blocktrans %}The student's comments will be shown to the lecturers who were evaluated and to the person responsible for the course – after the grades of all the course's exams have been published. In addition all average and median grades will then be published for all users of the platform if at least 20 percent of the course's students participated in the evaluation.{% endblocktrans %}<br />
-            <em>{% trans "More details:" %} <a href="/faq#3-s">{% trans "FAQ/Results" %}</a></em>
-        </div>
-    </small>
+    <div class="bs-callout bs-callout-info small">
+        <b>{% trans "Delegates" %}</b><br />
+        {% blocktrans %}Lecturers can assign delegates to help them with the preparation of the evaluation.{% endblocktrans %}
+        {% if user.is_editor %}
+            {% blocktrans %}You can assign your own delegates on your settings page.{% endblocktrans %} <a href="{% url "contributor:settings_edit" %}" class="btn btn-xs btn-default">{% trans "Edit settings" %}</a><br />
+        {% endif %}
+        {% if delegated_courses %}
+            {% blocktrans %}Courses from lecturers who set you as a delegate are marked with a label below.{% endblocktrans %}<br />
+        {% endif %}
+        <em>{% trans "More details:" %} <a href="/faq#15">{% trans "FAQ/Delegates" %}</a></em><br />
+        <br />
+        <b>{% trans "States of the courses" %}</b><br />
+        {% blocktrans %}You can only edit courses which are in the state "prepared". After you approved a course it will automatically change to the state "lecturer approved" and your preparation is finished.{% endblocktrans %}<br />
+        <em>{% trans "More details:" %} <a href="/faq#18">{% trans "FAQ/States" %}</a></em><br />
+        <br />
+        <b>{% trans "Evaluation Results" %}</b><br />
+        {% blocktrans %}The student's comments will be shown to the people who were evaluated and to the person responsible for the course – after the grades of all the course's exams have been published. In addition all average grades will then be published for all users of the platform if at least 20 percent of the course's students participated in the evaluation.{% endblocktrans %}<br />
+        <em>{% trans "More details:" %} <a href="/faq#3-s">{% trans "FAQ/Results" %}</a></em>
+    </div>
 
     {% for semester in semester_list %}
         {% if semester.courses %}
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title">{{ semester.semester_name }}</h3>
+                <span class="panel-title">{{ semester.semester_name }}</span>
             </div>
             <div class="panel-body">
-                <table class="table table-striped">
+                <table class="table table-striped vertically-aligned">
                     <thead>
                     <tr>
-                        <th class="col-sm-5">{% trans "Name" %}</th>
+                        <th class="col-sm-4">{% trans "Name" %}</th>
                         <th class="col-sm-2">{% trans "State" %}</th>
                         <th class="col-sm-2">{% trans "Evaluation Period" %}</th>
                         <th class="col-sm-1">{% trans "Participants" %}</th>
-                        <th class="col-sm-2"></th>
+                        <th class="col-sm-3"></th>
                     </tr>
                     </thead>
                     <tbody>
@@ -62,26 +50,32 @@
                                 <div>
                                     {{ course.name }}
                                 </div>
-                                <span class="label label-default">{{ course.kind }}</span>
-                                {% if course in delegated_courses %}<span class="label label-info twipsify" title="{% trans "You are seeing this course because you are a delegate of a lecturer who can edit the course." %}">{% trans "Delegate" %}</span>{% endif %}
+                                <span class="label label-default">{{ course.type }}</span>
+                                {% if course in delegated_courses %}<span class="label label-info" data-toggle="tooltip" data-placement="right" title="{% trans "You are seeing this course because you are a delegate of a lecturer who can edit the course." %}">{% trans "Delegate" %}</span>{% endif %}
                             </td>
                             <td>
-                                {{ course.state|statename }}
+                                <span data-toggle="tooltip" data-placement="left" title="{{ course.state|statedescription }}">{{ course.state|statename }}</span>
                             </td>
                             <td>
-                                {{ course.vote_start_date|date:'SHORT_DATE_FORMAT' }} &ndash; {{ course.vote_end_date|date:'SHORT_DATE_FORMAT' }}
+                                {{ course.vote_start_date|date:'SHORT_DATE_FORMAT' }}{% if course.is_single_result|is_false %} &ndash; {{ course.vote_end_date|date:'SHORT_DATE_FORMAT' }}{% endif %}
                             </td>
-                            <td>{{ course.num_participants }}</td>
                             <td>
-                                {% if course.state == 'published' %}
-                                    <a href="{% url "evap.results.views.course_detail" semester.id course.id %}" class="btn btn-sm btn-default">{% trans "Results" %}</a>
-                                {% else %}
+                                {% if course.is_single_result %}&mdash;{% else %}{{ course.num_participants }}{% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if course|is_user_editor_or_delegate:user %}
                                     {% if course.state == 'prepared' %}
-                                        <a href="{% url "evap.contributor.views.course_edit" course.id %}" class="btn btn-sm btn-primary">{% trans "Edit" %}</a>
-                                    {% else %}
-                                        <a href="{% url "evap.contributor.views.course_view" course.id %}" class="btn btn-sm btn-default">{% trans "View" %}</a>
+                                        <a href="{% url "contributor:course_edit" course.id %}" class="btn btn-sm btn-primary">{% trans "Edit" %}</a>
+                                        <a href="{% url "contributor:course_preview" course.id %}" class="btn btn-sm btn-default">{% trans "Preview" %}</a>
+                                    {% elif course.state == 'editor_approved' or course.state == 'approved' %}
+                                        <a href="{% url "contributor:course_view" course.id %}" class="btn btn-sm btn-default">{% trans "View" %}</a>
+                                        <a href="{% url "contributor:course_preview" course.id %}" class="btn btn-sm btn-default">{% trans "Preview" %}</a>
                                     {% endif %}
-                                    <a href="{% url "evap.contributor.views.course_preview" course.id %}" class="btn btn-sm btn-default">{% trans "Preview" %}</a>
+                                {% endif %}
+                                {% if course.state != 'published' %}
+                                    <div data-toggle="tooltip" data-placement="left" class="disabled-tooltip" title="{% trans "The results are not yet available. You will receive an email once they are published." %}"><a class="btn btn-sm btn-default disabled">{% trans "Results" %}</a></div>
+                                {% else %}
+                                    <a href="{% url "results:course_detail" semester.id course.id %}" class="btn btn-sm btn-default">{% trans "Results" %}</a>
                                 {% endif %}
                             </td>
                         </tr>

@@ -1,179 +1,185 @@
-from evap.evaluation.models import Questionnaire
-from evap.evaluation.tools import calculate_results, calculate_average_and_medium_grades
+from collections import OrderedDict
 
 from django.utils.translation import ugettext as _
 
-from collections import OrderedDict
-from collections import defaultdict
-import datetime
 import xlwt
+
+from evap.evaluation.models import CourseType
+from evap.evaluation.tools import calculate_results, calculate_average_grades_and_deviation, get_grade_color, get_deviation_color, has_no_rating_answers
 
 
 class ExcelExporter(object):
 
+    CUSTOM_COLOR_START = 8
+    NUM_GRADE_COLORS = 21  # 1.0 to 5.0 in 0.2 steps
+    NUM_DEVIATION_COLORS = 13  # 0.0 to 2.4 in 0.2 steps
+    STEP = 0.2  # we only have a limited number of custom colors
+
     def __init__(self, semester):
         self.semester = semester
+        self.styles = dict()
 
-    styles = {
-        'default':       xlwt.Style.default_style,
-        'avg':           xlwt.easyxf('alignment: horiz centre; font: bold on; borders: left medium, top medium, bottom medium'),
-        'variance_low':  xlwt.easyxf('alignment: horiz centre; borders: right medium', num_format_str="0.0"),
-        'variance_med':  xlwt.easyxf('pattern: pattern solid, fore_colour gray25; alignment: horiz centre; borders: right medium', num_format_str="0.0"),
-        'variance_high': xlwt.easyxf('pattern: pattern solid, fore_colour gray40; alignment: horiz centre; borders: right medium', num_format_str="0.0"),
-        'headline':      xlwt.easyxf('font: bold on, height 400; alignment: horiz centre, vert centre, wrap on', num_format_str="0.0"),
-        'course':        xlwt.easyxf('alignment: horiz centre, wrap on, rota 90; borders: left medium, top medium'),
-        'course_unfinished': xlwt.easyxf('alignment: horiz centre, wrap on, rota 90; borders: left medium, top medium; font: italic on'),
-        'total_voters': xlwt.easyxf('alignment: horiz centre; borders: left medium, bottom medium, right medium'),
-        'bold':          xlwt.easyxf('font: bold on'),
-        'border_left':   xlwt.easyxf('borders: left medium'),
-        'border_right':  xlwt.easyxf('borders: right medium'),
-        'border_top_bottom_right': xlwt.easyxf('borders: top medium, bottom medium, right medium')}
+    def normalize_number(self, number):
+        """ floors 'number' to a multiply of self.STEP """
+        rounded_number = round(number, 1)  # see #302
+        return round(int(rounded_number / self.STEP + 0.0001) * self.STEP, 1)
 
-    grade_color_palette = [["custom_dark_green",  0x20, (136, 191, 74)],
-                           ["custom_light_green", 0x21, (187, 209, 84)],
-                           ["custom_yellow",      0x22, (239, 226, 88)],
-                           ["custom_orange",      0x23, (242, 158, 88)],
-                           ["custom_red",         0x24, (235,  89, 90)]]
+    def create_color(self, workbook, color_name, palette_index, color):
+        xlwt.add_palette_colour(color_name, palette_index)
+        workbook.set_colour_RGB(palette_index, *color)
 
-    grade_base_style = 'pattern: pattern solid, fore_colour {}; alignment: horiz centre; font: bold on; borders: left medium'
-    # Adding evaP colors to palette
-    for index, c in enumerate(grade_color_palette):
-        xlwt.add_palette_colour(c[0], c[1])
-        styles['grade_' + str(index)] = xlwt.easyxf(grade_base_style.format(c[0]), num_format_str="0.0")
+    def create_style(self, base_style, style_name, color_name):
+        self.styles[style_name] = xlwt.easyxf(base_style.format(color_name), num_format_str="0.0")
 
+    def init_styles(self, workbook):
+        self.styles = {
+            'default':       xlwt.Style.default_style,
+            'avg':           xlwt.easyxf('alignment: horiz centre; font: bold on; borders: left medium, top medium, bottom medium'),
+            'headline':      xlwt.easyxf('font: bold on, height 400; alignment: horiz centre, vert centre, wrap on', num_format_str="0.0"),
+            'course':        xlwt.easyxf('alignment: horiz centre, wrap on, rota 90; borders: left medium, top medium, right medium'),
+            'total_voters':  xlwt.easyxf('alignment: horiz centre; borders: left medium, bottom medium, right medium'),
+            'bold':          xlwt.easyxf('font: bold on'),
+            'border_left':   xlwt.easyxf('borders: left medium'),
+            'border_right':  xlwt.easyxf('borders: right medium'),
+            'border_top_bottom_right': xlwt.easyxf('borders: top medium, bottom medium, right medium')}
 
-    @classmethod
-    def add_color_palette_to_workbook(cls, workbook):
-        for c in cls.grade_color_palette:
-            workbook.set_colour_RGB(c[1], *c[2])
+        grade_base_style = 'pattern: pattern solid, fore_colour {}; alignment: horiz centre; font: bold on; borders: left medium'
+        for i in range(0, self.NUM_GRADE_COLORS):
+            grade = 1 + i * self.STEP
+            color = get_grade_color(grade)
+            palette_index = self.CUSTOM_COLOR_START + i
+            style_name = self.grade_to_style(grade)
+            color_name = style_name + "_color"
+            self.create_color(workbook, color_name, palette_index, color)
+            self.create_style(grade_base_style, style_name, color_name)
+            self.create_style(grade_base_style + ', right medium', style_name + '_total', color_name)
 
-    @staticmethod
-    def grade_to_style(grade):
-        rounded_grade = round(grade, 1)
-        if rounded_grade < 1.5:
-            return 'grade_0'
-        elif rounded_grade < 2.5:
-            return 'grade_1'
-        elif rounded_grade < 3.5:
-            return 'grade_2'
-        elif rounded_grade < 4.5:
-            return 'grade_3'
-        else:
-            return 'grade_4'
+        deviation_base_style = 'pattern: pattern solid, fore_colour {}; alignment: horiz centre; borders: right medium'
+        for i in range(0, self.NUM_DEVIATION_COLORS):
+            deviation = i * self.STEP
+            color = get_deviation_color(deviation)
+            palette_index = self.CUSTOM_COLOR_START + self.NUM_GRADE_COLORS + i
+            style_name = self.deviation_to_style(deviation)
+            color_name = style_name + "_color"
+            self.create_color(workbook, color_name, palette_index, color)
+            self.create_style(deviation_base_style, style_name, color_name)
+            self.create_style(deviation_base_style + ', left medium', style_name + '_total', color_name)
 
-    @staticmethod
-    def variance_to_style(variance):
-        rounded_variance = round(variance, 1)
-        if rounded_variance < 0.5:
-            return 'variance_low'
-        elif rounded_variance < 1.0:
-            return 'variance_med'
-        else:
-            return 'variance_high'
+    def grade_to_style(self, grade, total=False):
+        style_name = 'grade_' + str(self.normalize_number(grade))
+        if total:
+            style_name += "_total"
+        return style_name
 
-    def export(self, response, ignore_not_enough_answers=False):
-        courses_with_results = list()
-        for course in self.semester.course_set.filter(state="published").all():
-            results = OrderedDict()
-            for questionnaire, contributor, data, avg_likert, med_likert, avg_grade, med_grade, avg_total, med_total, section_warning in calculate_results(course):
-                results.setdefault(questionnaire.id, []).append((contributor, data, avg_total, med_total))
-            courses_with_results.append((course, results))
+    def deviation_to_style(self, deviation, total=False):
+        style_name = 'deviation_' + str(self.normalize_number(deviation))
+        if total:
+            style_name += "_total"
+        return style_name
 
-        courses_with_results.sort(key=lambda cr: cr[0].kind)
-
-        qn_frequencies = defaultdict(int)
-        for course, results in courses_with_results:
-            for questionnaire, results in results.items():
-                qn_frequencies[questionnaire] += 1
-
-        qn_relevant = list(qn_frequencies.items())
-        qn_relevant.sort(key=lambda t: -t[1])
-
-        questionnaires = [Questionnaire.objects.get(id=t[0]) for t in qn_relevant]
-
+    def export(self, response, course_types_list, ignore_not_enough_answers=False, include_unpublished=False):
         self.workbook = xlwt.Workbook()
-        self.sheet = self.workbook.add_sheet(_(u"Results"))
-        self.row = 0
-        self.col = 0
+        self.init_styles(self.workbook)
+        counter = 1
 
-        
-        self.add_color_palette_to_workbook(self.workbook)
+        for course_types in course_types_list:
+            self.sheet = self.workbook.add_sheet("Sheet " + str(counter))
+            counter += 1
+            self.row = 0
+            self.col = 0
 
-        writec(self, _(u"Evaluation {0} - created on {1}").format(self.semester.name, datetime.date.today()), "headline")
-        for course, results in courses_with_results:
-            if course.state == "published":
-                writec(self, course.name, "course", cols=2)
-            else:
-                writec(self, course.name, "course_unfinished", cols=2)
+            courses_with_results = list()
+            course_states = ['published']
+            if include_unpublished:
+                course_states.extend(['evaluated', 'reviewed'])
 
-        writen(self)
-        for course, results in courses_with_results:
-            writec(self, "Average", "avg")
-            writec(self, "Variance", "border_top_bottom_right")
-
-        for questionnaire in questionnaires:
-            writen(self, questionnaire.name, "bold")
-            for course, results in courses_with_results:
-                self.write_two_empty_cells_with_borders()
-
-            for question in questionnaire.question_set.all():
-                if question.is_text_question():
+            used_questionnaires = set()
+            for course in self.semester.course_set.filter(state__in=course_states, type__in=course_types).all():
+                if course.is_single_result:
                     continue
+                results = OrderedDict()
+                for questionnaire, contributor, __, data, __ in calculate_results(course):
+                    if has_no_rating_answers(course, contributor, questionnaire):
+                        continue
+                    results.setdefault(questionnaire.id, []).extend(data)
+                    used_questionnaires.add(questionnaire)
+                courses_with_results.append((course, results))
 
-                writen(self, question.text)
+            courses_with_results.sort(key=lambda cr: cr[0].type)
+            used_questionnaires = sorted(used_questionnaires)
 
+            course_type_names = [ct.name for ct in CourseType.objects.filter(pk__in=course_types)]
+            writec(self, _("Evaluation {0}\n\n{1}").format(self.semester.name, ", ".join(course_type_names)), "headline")
+
+            for course, results in courses_with_results:
+                writec(self, course.name, "course", cols=2)
+
+            writen(self)
+            for course, results in courses_with_results:
+                writec(self, "Average", "avg")
+                writec(self, "Deviation", "border_top_bottom_right")
+
+            for questionnaire in used_questionnaires:
+                writen(self, questionnaire.name, "bold")
                 for course, results in courses_with_results:
-                    qn_results = results.get(questionnaire.id, None)
-                    if qn_results:
-                        values = []
-                        variances = []
-                        enough_answers = True
-                        for contributor, data, avg_grade, med_grade in qn_results:
-                            for grade_result in data:
-                                if grade_result.question.id == question.id:
-                                    if grade_result.average:
-                                        values.append(grade_result.average)
-                                        variances.append(grade_result.variance)
-                                        if not grade_result.show:
-                                            enough_answers = False
-                                    break
-                        if values and (enough_answers or ignore_not_enough_answers):
-                            avg = sum(values) / len(values)
-                            writec(self, avg, ExcelExporter.grade_to_style(avg));
+                    self.write_two_empty_cells_with_borders()
 
-                            var = sum(variances) / len(variances)
-                            writec(self, var, ExcelExporter.variance_to_style(var))
+                for question in questionnaire.question_set.all():
+                    if question.is_text_question:
+                        continue
+
+                    writen(self, question.text)
+
+                    for course, results in courses_with_results:
+                        if questionnaire.id not in results:
+                            self.write_two_empty_cells_with_borders()
+                            continue
+                        qn_results = results[questionnaire.id]
+                        values = []
+                        deviations = []
+                        total_count = 0
+
+                        for grade_result in qn_results:
+                            if grade_result.question.id == question.id:
+                                if grade_result.average:
+                                    values.append(grade_result.average * grade_result.total_count)
+                                    deviations.append(grade_result.deviation * grade_result.total_count)
+                                    total_count += grade_result.total_count
+                        enough_answers = course.can_publish_grades
+                        if values and (enough_answers or ignore_not_enough_answers):
+                            avg = sum(values) / total_count
+                            writec(self, avg, self.grade_to_style(avg))
+
+                            dev = sum(deviations) / total_count
+                            writec(self, dev, self.deviation_to_style(dev))
                         else:
                             self.write_two_empty_cells_with_borders()
-                    else:
-                        self.write_two_empty_cells_with_borders()
-            writen(self, None)
+                writen(self, None)
+                for course, results in courses_with_results:
+                    self.write_two_empty_cells_with_borders()
+
+            writen(self, _("Overall Average Grade"), "bold")
             for course, results in courses_with_results:
-                self.write_two_empty_cells_with_borders()
+                avg, dev = calculate_average_grades_and_deviation(course)
+                if avg:
+                    writec(self, avg, self.grade_to_style(avg, total=True), cols=2)
+                else:
+                    self.write_two_empty_cells_with_borders()
 
-        writen(self, _(u"Overall Average Grade"), "bold")
-        for course, results in courses_with_results:
-            avg, med = calculate_average_and_medium_grades(course)
-            if avg:
-                writec(self, avg, ExcelExporter.grade_to_style(avg), cols=2)
-            else:
-                self.write_two_empty_cells_with_borders()
+            writen(self, _("Overall Average Standard Deviation"), "bold")
+            for course, results in courses_with_results:
+                avg, dev = calculate_average_grades_and_deviation(course)
+                if dev is not None:
+                    writec(self, dev, self.deviation_to_style(dev, total=True), cols=2)
+                else:
+                    self.write_two_empty_cells_with_borders()
 
-        writen(self, _(u"Overall Median Grade"), "bold")
-        for course, results in courses_with_results:
-            avg, med = calculate_average_and_medium_grades(course)
-            if med:
-                writec(self, med, ExcelExporter.grade_to_style(med), cols=2)
-            else:
-                self.write_two_empty_cells_with_borders()
-
-        writen(self, _(u"Total Voters/Total Participants"), "bold")
-        for course, results in courses_with_results:
-            percent_participants = float(course.num_voters)/float(course.num_participants)
-            writec(self, "{}/{} ({:.0%})".format(course.num_voters, course.num_participants, percent_participants), "total_voters", cols=2)
+            writen(self, _("Total Voters/Total Participants"), "bold")
+            for course, results in courses_with_results:
+                percent_participants = float(course.num_voters) / float(course.num_participants) if course.num_participants > 0 else 0
+                writec(self, "{}/{} ({:.0%})".format(course.num_voters, course.num_participants, percent_participants), "total_voters", cols=2)
 
         self.workbook.save(response)
-
 
     def write_two_empty_cells_with_borders(self):
         writec(self, None, "border_left")
@@ -186,10 +192,12 @@ def writen(exporter, label="", style_name="default"):
     exporter.row += 1
     writec(exporter, label, style_name)
 
+
 def writec(exporter, label, style_name, rows=1, cols=1):
     """Write the cell in the next column of the current line."""
-    _write(exporter, label, ExcelExporter.styles[style_name], rows, cols )
+    _write(exporter, label, exporter.styles[style_name], rows, cols)
     exporter.col += 1
+
 
 def _write(exporter, label, style, rows, cols):
     if rows > 1 or cols > 1:

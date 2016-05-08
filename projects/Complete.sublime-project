@@ -6,20 +6,23 @@
             "path": "..",
             "folder_exclude_patterns":
             [
-                "evap/staticfiles",
+                "evap/static_collected",
                 "evap/static/js",
+                "evap/static/bootstrap",
                 "htmlcov",
-                "deployment/modules/apache",
-                "deployment/modules/apt",
-                "deployment/modules/concat",
-                "deployment/modules/postgresql",
-                "deployment/modules/stdlib",
+                "deployment/testing_environment/modules/apache",
+                "deployment/testing_environment/modules/apt",
+                "deployment/testing_environment/modules/concat",
+                "deployment/testing_environment/modules/postgresql",
+                "deployment/testing_environment/modules/stdlib",
             ],
             "file_exclude_patterns":
             [
                 "coverage.xml",
                 ".coverage",
                 ".mo",
+                "*bootstrap*css*",
+                "*jquery*css*",
             ]
 
         }
@@ -37,9 +40,16 @@
                 },
                 {
                     "name": "vagrant test",
-                    "cmd": ["vagrant", "ssh", "-c", "\"cd /vagrant && python manage.py test\""]
+                    "cmd": ["vagrant", "ssh", "-c", "\"cd /vagrant && python3 manage.py test\""]
                 }
             ]
         }
-    ]
+    ],
+    "settings":
+    {
+        "tab_size": 4,
+        "trim_trailing_white_space_on_save": true,
+        "translate_tabs_to_spaces": true,
+        "ensure_newline_at_eof_on_save": true,
+    },
 }

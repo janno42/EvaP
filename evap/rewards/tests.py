@@ -1,41 +1,33 @@
 from django.conf import settings
-from django_webtest import WebTest
+from django.core.urlresolvers import reverse
+
+from model_mommy import mommy
+
 from evap.evaluation.models import Course
 from evap.evaluation.models import UserProfile
+from evap.evaluation.tests.test_utils import WebTest
 from evap.rewards.models import SemesterActivation
 from evap.rewards.models import RewardPointRedemptionEvent
 from evap.rewards.tools import reward_points_of_user
-from evap.staff.tests import lastform
-from django.core.urlresolvers import reverse
 
 
 class RewardTests(WebTest):
-
     fixtures = ['minimal_test_data_rewards']
     csrf_checks = False
-    extra_environ = {'HTTP_ACCEPT_LANGUAGE': 'en'}
 
     def test_delete_redemption_events(self):
         """
             Submits a request that tries to delete an event where users already redeemed points -> should not work.
-            Secondly it issues a GET Request and asserts that the page for deleting events is returned.
-            Last it submits a request that should delete the event.
+            It also submits a request that should delete the event.
         """
         # try to delete event that can not be deleted, because people already redeemed points
-        response = self.app.post(reverse("evap.rewards.views.reward_point_redemption_event_delete", args=[1]), user="evap")
-        self.assertRedirects(response, reverse('evap.rewards.views.reward_point_redemption_events'))
-        response = response.follow()
-        self.assertContains(response, "cannot be deleted")
-        self.assertTrue(RewardPointRedemptionEvent.objects.filter(pk=2).exists())
-
-        # make sure that a GET Request does not delete an event
-        response = self.app.get(reverse("evap.rewards.views.reward_point_redemption_event_delete", args=[2]), user="evap")
-        self.assertTemplateUsed(response, "rewards_reward_point_redemption_event_delete.html")
+        response = self.app.post(reverse("rewards:reward_point_redemption_event_delete"), {"event_id": 1}, user="evap", expect_errors=True)
+        self.assertEqual(response.status_code, 400)
         self.assertTrue(RewardPointRedemptionEvent.objects.filter(pk=2).exists())
 
         # now delete for real
-        response = self.app.post(reverse("evap.rewards.views.reward_point_redemption_event_delete", args=[2]), user="evap")
-        self.assertRedirects(response, reverse('evap.rewards.views.reward_point_redemption_events'))
+        response = self.app.post(reverse("rewards:reward_point_redemption_event_delete"), {"event_id": 2}, user="evap")
+        self.assertEqual(response.status_code, 200)
         self.assertFalse(RewardPointRedemptionEvent.objects.filter(pk=2).exists())
 
     def test_redeem_reward_points(self):
@@ -43,11 +35,11 @@ class RewardTests(WebTest):
             Submits a request that redeems all available reward points and checks that this works.
             Also checks that it is not possible to redeem more points than the user actually has.
         """
-        response = self.app.get(reverse("evap.rewards.views.index"), user="student")
+        response = self.app.get(reverse("rewards:index"), user="student")
         self.assertEqual(response.status_code, 200)
 
         user = UserProfile.objects.get(pk=5)
-        form = lastform(response)
+        form = response.forms["reward-redemption-form"]
         form.set("points-1", reward_points_of_user(user))
         response = form.submit()
         self.assertEqual(response.status_code, 200)
@@ -63,29 +55,29 @@ class RewardTests(WebTest):
         """
             submits a newly created redemption event and checks that the event has been created
         """
-        response = self.app.get(reverse("evap.rewards.views.reward_point_redemption_event_create"), user="evap")
+        response = self.app.get(reverse("rewards:reward_point_redemption_event_create"), user="evap")
 
-        form = lastform(response)
+        form = response.forms["reward-point-redemption-event-form"]
         form.set('name', 'Test3Event')
         form.set('date', '2014-12-10')
         form.set('redeem_end_date', '2014-11-20')
 
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.rewards.views.reward_point_redemption_events'))
+        self.assertRedirects(response, reverse('rewards:reward_point_redemption_events'))
         self.assertEqual(RewardPointRedemptionEvent.objects.count(), 3)
 
     def test_edit_redemption_event(self):
         """
             submits a changed redemption event and tests whether it actually has changed
         """
-        response = self.app.get(reverse("evap.rewards.views.reward_point_redemption_event_edit", args=[2]), user="evap")
+        response = self.app.get(reverse("rewards:reward_point_redemption_event_edit", args=[2]), user="evap")
 
-        form = lastform(response)
+        form = response.forms["reward-point-redemption-event-form"]
         name = form.get('name').value
         form.set('name', 'new name')
 
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.rewards.views.reward_point_redemption_events'))
+        self.assertRedirects(response, reverse('rewards:reward_point_redemption_events'))
         self.assertNotEqual(RewardPointRedemptionEvent.objects.get(pk=2).name, name)
 
     def test_grant_reward_points(self):
@@ -95,15 +87,15 @@ class RewardTests(WebTest):
         """
         user = UserProfile.objects.get(pk=5)
         reward_points_before_end = reward_points_of_user(user)
-        response = self.app.get(reverse("evap.student.views.vote", args=[9]), user="student")
+        response = self.app.get(reverse("student:vote", args=[9]), user="student")
 
-        form = lastform(response)
-        for key, value in form.fields.items():
+        form = response.forms["student-vote-form"]
+        for key in form.fields.keys():
             if key is not None and "question" in key:
                 form.set(key, 6)
 
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.student.views.index'))
+        self.assertRedirects(response, reverse('student:index'))
 
         # semester is not activated --> number of reward points should not increase
         self.assertEqual(reward_points_before_end, reward_points_of_user(user))
@@ -116,12 +108,12 @@ class RewardTests(WebTest):
         activation.is_active = True
         activation.save()
         # create a new course
-        new_course = Course(semester=course.semester, name_de="bhabda", name_en="dsdsfds")
+        new_course = mommy.make(Course, semester=course.semester)
         new_course.save()
         new_course.participants.add(user)
         new_course.save()
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.student.views.index'))
+        self.assertRedirects(response, reverse('student:index'))
 
         # user also has other courses this semester --> number of reward points should not increase
         self.assertEqual(reward_points_before_end, reward_points_of_user(user))
@@ -133,7 +125,7 @@ class RewardTests(WebTest):
 
         # last course of user so he may get reward points
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.student.views.index'))
+        self.assertRedirects(response, reverse('student:index'))
         # if this test fails because of this assertion check that the user is allowed to receive reward points!
         self.assertEqual(reward_points_before_end + settings.REWARD_POINTS_PER_SEMESTER, reward_points_of_user(user))
 
@@ -141,5 +133,5 @@ class RewardTests(WebTest):
         course.voters = []
         course.save()
         response = form.submit()
-        self.assertRedirects(response, reverse('evap.student.views.index'))
+        self.assertRedirects(response, reverse('student:index'))
         self.assertEqual(reward_points_before_end + settings.REWARD_POINTS_PER_SEMESTER, reward_points_of_user(user))

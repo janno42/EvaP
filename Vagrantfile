@@ -1,28 +1,36 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# needed for the hyper-v stuff
+Vagrant.require_version ">= 1.7.4"
+
 Vagrant.configure("2") do |config|
-  # Base box to build off, and download URL for when it doesn't exist on the user's system already
-  config.vm.box = "precise64"
+  config.vm.box = "puppetlabs/ubuntu-14.04-64-puppet"
+  config.vm.box_version = "= 1.0.2"
 
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine.
-  config.vm.network :forwarded_port, guest: 80, host: 8000
-  config.vm.network :forwarded_port, guest: 8000, host: 8080
+  # port forwarding
+  config.vm.network :forwarded_port, guest: 8000, host: 8000 # django server
+  config.vm.network :forwarded_port, guest: 80, host: 8001 # apache
 
-  config.vm.provider :virtualbox do |vb, override|
-    vb.customize ["modifyvm", :id, "--memory", "1024"]
+  # uncomment this to debug startup problems
+  #config.vm.provider :virtualbox do |v, override|
+  #  v.gui = true
+  #end
 
-    override.vm.box_url = "http://puppet-vagrant-boxes.puppetlabs.com/ubuntu-server-12042-x64-vbox4210.box"
+  config.vm.provider :hyperv do |vb, override|
+    override.vm.provision "provider-specific", preserve_order:true, type: :shell do |shell|
+      shell.path = "deployment/providers/hyperv.sh"
+    end
   end
 
-  config.vm.provider :lxc do |v, override|
-    override.vm.box_url = "http://bit.ly/vagrant-lxc-precise64-2013-10-23"
+  # This is a placeholder job that can be overridden in order to install
+  # puppet if needed *before* the actual provisioning happens
+  config.vm.provision "provider-specific", type: :shell do |shell|
+    shell.path = "deployment/providers/default.sh"
   end
 
   config.vm.provision :puppet do |puppet|
-    puppet.module_path = "deployment/modules"
-    puppet.manifests_path = "deployment"
-    puppet.manifest_file = "site.pp"
+    puppet.environment_path = "deployment"
+    puppet.environment = "testing_environment"
   end
 end
