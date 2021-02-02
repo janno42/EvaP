@@ -29,27 +29,27 @@ echo "Starting update..."
 
 set -x # print executed commands. enable this here to not print the if above.
 
-sudo -H -u $USERNAME git fetch
+git fetch
 
 # Note that apache should not be running during most of the upgrade,
 # since then e.g. the backup might be incomplete or the code does not
 # match the database layout, or https://github.com/e-valuation/EvaP/issues/1237.
 [[ -z "$GITHUB_WORKFLOW" ]] && sudo service apache2 stop
 
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py dumpdata --natural-foreign --natural-primary --all -e contenttypes -e auth.Permission --indent 2 --output $FILENAME
+$ENVDIR/bin/python manage.py dumpdata --natural-foreign --natural-primary --all -e contenttypes -e auth.Permission --indent 2 --output $FILENAME
 
 [[ ! -z "$EVAP_SKIP_CHECKOUT" ]] && echo "Skipping Checkout"
-[[ ! -z "$EVAP_SKIP_CHECKOUT" ]] || sudo -H -u $USERNAME git checkout origin/release
+[[ ! -z "$EVAP_SKIP_CHECKOUT" ]] || git checkout origin/release
 
-sudo -H -u $USERNAME $ENVDIR/bin/pip install -r requirements.txt
+$ENVDIR/bin/pip install -r requirements.txt
 # sometimes, this fails for some random i18n test translation files.
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py compilemessages || true
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py collectstatic --noinput
+$ENVDIR/bin/python manage.py compilemessages || true
+$ENVDIR/bin/python manage.py collectstatic --noinput
 # this fails if debug is set
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py compress --verbosity=0 || true
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py migrate
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py clear_cache
-sudo -H -u $USERNAME $ENVDIR/bin/python manage.py refresh_results_cache
+$ENVDIR/bin/python manage.py compress --verbosity=0 || true
+$ENVDIR/bin/python manage.py migrate
+$ENVDIR/bin/python manage.py clear_cache
+$ENVDIR/bin/python manage.py refresh_results_cache
 
 [[ -z "$GITHUB_WORKFLOW" ]] && sudo service apache2 start
 

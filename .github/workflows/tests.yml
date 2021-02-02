@@ -100,9 +100,6 @@ jobs:
     name: Backup process
 
     steps:
-      - name: Install sudo package
-        # otherwise, sudo commands in the scripts called will fail
-        run: apt update && apt install sudo
       - name: Check out repository code
         uses: actions/checkout@v2
       - name: Install dependencies
