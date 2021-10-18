@@ -226,7 +226,7 @@ export class EvaluationGrid extends TableGrid {
                     this.state.filter.set("evaluationState", [button.data("filter")]);
                 }
                 this.filterRows();
-                this.renderToDOM()();
+                this.renderToDOM();
             });
         });
     }
