@@ -1,0 +1,4 @@
+@include color-mode(abc, true) {
+    --#{$prefix}body-color: #{$lighter-gray};
+    --#{$prefix}body-bg: #{$primary};
+}

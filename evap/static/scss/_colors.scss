@@ -46,3 +46,21 @@ $vote-colors: (
 );
 
 $code-color: $darker-gray;
+
+
+
+
+[data-bs-theme="abc"] {
+    $primary: $evap-light-blue;
+    $secondary: $darker-gray;
+    $success: $darker-gray;
+    $info: $evap-dark-blue;
+    $warning: $darker-gray;
+    $danger: $lighter-gray;
+    $light: $darker-gray;
+    $dark: $darker-gray;
+}
+
+
+
+

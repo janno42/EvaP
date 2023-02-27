@@ -81,6 +81,15 @@
                     </li>
                 {% endif %}
             {% endif %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" id="bd-theme" aria-expanded="false" data-bs-toggle="dropdown">Theme</a>
+                <div class="dropdown-menu" aria-labelledby="bd-theme">
+                    <button type="button" class="dropdown-item" data-bs-theme-value="light">Light</button>
+                    <button type="button" class="dropdown-item" data-bs-theme-value="dark">Dark</button>
+                    <button type="button" class="dropdown-item" data-bs-theme-value="abc">ABC</button>
+                    <button type="button" class="dropdown-item" data-bs-theme-value="auto">Auto</button>
+                </div>
+            </li>
         </ul>
         <ul class="navbar-nav justify-content-end">
             <li class="nav-item"><a class="nav-link" href="{% url 'evaluation:faq' %}">{% trans 'FAQ' %}</a></li>
