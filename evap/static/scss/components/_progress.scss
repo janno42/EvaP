@@ -80,3 +80,19 @@
     }
 }
 
+.step-bar {
+    display: flex;
+
+    .step-bar-progress {
+        height: 4px;
+        width: 25%;
+        background-color: $evap-dark-blue;
+        border-radius: 2px;
+    }
+
+    .step-bar-text {
+        padding-left: 0.4rem;
+        margin-top: -0.4rem;
+        font-size: 0.6rem;
+    }
+}

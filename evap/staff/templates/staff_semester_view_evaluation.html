@@ -75,6 +75,23 @@
 {% endif %}
 
 <td data-col="name" data-order="{{ evaluation.full_name }}">
+    {% if state == evaluation.State.NEW %}
+        {% include 'staff_step_bar.html' with percentage='0' label='New' %}
+    {% elif state == evaluation.State.PREPARED %}
+        {% include 'staff_step_bar.html' with percentage='10' label='Prepared' %}
+    {% elif state == evaluation.State.EDITOR_APPROVED %}
+        {% include 'staff_step_bar.html' with percentage='20' label='Editor Approved' %}
+    {% elif state == evaluation.State.APPROVED %}
+        {% include 'staff_step_bar.html' with percentage='30' label='Approved' %}
+    {% elif state == evaluation.State.IN_EVALUATION %}
+        {% include 'staff_step_bar.html' with percentage='40' label='In Evaluation' %}
+    {% elif state == evaluation.State.EVALUATED %}
+        {% include 'staff_step_bar.html' with percentage='50' label='Evaluated' %}
+    {% elif state == evaluation.State.REVIEWED %}
+        {% include 'staff_step_bar.html' with percentage='60' label='Reviewed' %}
+    {% elif state == evaluation.State.PUBLISHED %}
+        {% include 'staff_step_bar.html' with percentage='70' label='Published' %}
+    {% endif %}
     <div>
     {% if not info_only and request.user.is_manager %}
         <a href="{% url 'staff:evaluation_edit' evaluation.id %}">{{ evaluation.full_name }}</a>
