@@ -39,6 +39,8 @@ urlpatterns = [
     path("evaluation/<int:evaluation_id>/login_key_export", views.evaluation_login_key_export, name="evaluation_login_key_export"),
     path("semester/<int:semester_id>/evaluation/operation", views.evaluation_operation, name="evaluation_operation"),
 
+    path("deleted_evaluation/delete", views.deleted_evaluation_delete, name="deleted_evaluation_delete"),
+
     path("semester/<int:semester_id>/course/create", views.course_create, name="course_create"),
     path("course/delete", views.course_delete, name="course_delete"),
     path("course/<int:course_id>/edit", views.CourseEditView.as_view(), name="course_edit"),

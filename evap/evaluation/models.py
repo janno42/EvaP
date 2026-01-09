@@ -1142,6 +1142,32 @@ def log_state_transition(instance, name, source: int, target: int, **_kwargs):
     )
 
 
+class DeletedEvaluation(models.Model):
+    """Model for an evaluation that was deleted and should not be imported again from the CMS"""
+
+    # unique reference for import from campus management system
+    cms_id = models.CharField(
+        verbose_name=_("campus management system id"), blank=True, null=True, unique=True, max_length=255
+    )
+
+    name_de = models.CharField(max_length=1024, verbose_name=_("name (german)"), blank=True)
+    name_en = models.CharField(max_length=1024, verbose_name=_("name (english)"), blank=True)
+    name = translate(en="name_en", de="name_de")
+
+    course = models.ForeignKey(Course, models.CASCADE, verbose_name=_("course"), related_name="deleted_evaluations")
+
+    notes = models.TextField(verbose_name=_("notes"), blank=True)
+
+    class Meta:
+        verbose_name = _("deleted evaluation")
+        verbose_name_plural = _("deleted evaluations")
+
+    def __str__(self):
+        if self.name:
+            return f"{self.course.name} – {self.name}"
+        return self.course.name
+
+
 class Contribution(LoggedModel):
     """A contributor who is assigned to an evaluation and their questionnaires."""
 

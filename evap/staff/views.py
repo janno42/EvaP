@@ -46,6 +46,7 @@ from evap.evaluation.models import (
     Contribution,
     Course,
     CourseType,
+    DeletedEvaluation,
     EmailTemplate,
     Evaluation,
     ExamType,
@@ -1400,6 +1401,15 @@ def evaluation_delete(request):
         )
 
     with temporary_receiver(RewardPointGranting.granted_by_evaluation_deletion, notify_reward_points):
+        if evaluation.cms_id:
+            # remember deleted evaluation to prevent the importer from creating it again
+            DeletedEvaluation.objects.create(
+                cms_id=evaluation.cms_id,
+                name_de=evaluation.name_de,
+                name_en=evaluation.name_en,
+                course=evaluation.course,
+                notes=evaluation.notes,
+            )
         evaluation.delete()
         update_template_cache_of_published_evaluations_in_course(evaluation.course)
 
@@ -1430,6 +1440,16 @@ def evaluation_email(request, evaluation_id):
         "staff_evaluation_email.html",
         {"semester": evaluation.course.semester, "evaluation": evaluation, "form": form},
     )
+
+
+@require_POST
+@manager_required
+def deleted_evaluation_delete(request):
+    deleted_evaluation = get_object_from_dict_pk_entry_or_logged_40x(
+        DeletedEvaluation, request.POST, "deleted_evaluation_id"
+    )
+    deleted_evaluation.delete()
+    return HttpResponseNoContent()
 
 
 class ImportAction(Enum):
