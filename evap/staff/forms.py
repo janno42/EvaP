@@ -429,6 +429,7 @@ class EvaluationForm(forms.ModelForm):
             "participants",
             "general_questionnaires",
             "dropout_questionnaires",
+            "notes",
         )
         localized_fields = ("vote_start_datetime", "vote_end_date")
         field_classes = {
