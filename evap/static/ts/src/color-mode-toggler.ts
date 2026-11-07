@@ -1,79 +1,62 @@
 /*!
+ * Adapted from:
  * Color mode toggler for Bootstrap's docs (https://getbootstrap.com/)
  * Copyright 2011-2025 The Bootstrap Authors
  * Licensed under the Creative Commons Attribution 3.0 Unported License.
+ *
+ * Modified for EvaP: added color selection, adapted dropdown highlighting, and refactored preference handling.
  */
 
 (() => {
     "use strict";
 
     type Theme = "light" | "dark" | "auto";
+    type Colors = "default" | "alternative";
+
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
     const isTheme = (value: string | null): value is Theme => value === "light" || value === "dark" || value === "auto";
+    const isColors = (value: string | null): value is Colors => value === "default" || value === "alternative";
+
+    const showActiveOption = (attribute: string, value: string): void => {
+        document.querySelectorAll<HTMLElement>(`[${attribute}]`).forEach(button => {
+            const active = button.getAttribute(attribute) === value;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+    };
 
     const getStoredTheme = (): Theme | null => {
         const item = localStorage.getItem("theme");
         return isTheme(item) ? item : null;
     };
-    const setStoredTheme = (theme: Theme): void => localStorage.setItem("theme", theme);
-
-    const getPreferredTheme = (): Theme => {
-        const storedTheme = getStoredTheme();
-        if (storedTheme) {
-            return storedTheme;
-        }
-
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    };
+    const getPreferredTheme = (): Theme => getStoredTheme() ?? (systemTheme.matches ? "dark" : "light");
 
     const setTheme = (theme: Theme): void => {
-        if (theme === "auto") {
-            document.documentElement.setAttribute(
-                "data-bs-theme",
-                window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
-            );
-        } else {
-            document.documentElement.setAttribute("data-bs-theme", theme);
-        }
+        const resolvedTheme = theme === "auto" ? (systemTheme.matches ? "dark" : "light") : theme;
+        document.documentElement.setAttribute("data-bs-theme", resolvedTheme);
+        showActiveOption("data-bs-theme-value", theme);
     };
 
-    setTheme(getPreferredTheme());
+    const getPreferredColors = (): Colors => {
+        const storedColors = localStorage.getItem("evap-colors");
+        return isColors(storedColors) ? storedColors : "default";
+    };
 
-    const showActiveTheme = (theme: Theme, focus = false): void => {
-        const themeSwitcher = document.querySelector<HTMLElement>("#bd-theme");
-
-        if (!themeSwitcher) {
-            return;
-        }
-
-        const themeSwitcherText = document.querySelector<HTMLElement>("#bd-theme-text");
-        const activeThemeIcon = document.querySelector<SVGUseElement>(".theme-icon-active use");
-        const btnToActive = document.querySelector<HTMLElement>(`[data-bs-theme-value="${theme}"]`);
-
-        if (!themeSwitcherText || !activeThemeIcon || !btnToActive) {
-            return;
-        }
-
-        const svgOfActiveBtn = btnToActive.querySelector("svg use")?.getAttribute("href");
-
-        document.querySelectorAll<HTMLElement>("[data-bs-theme-value]").forEach(element => {
-            element.classList.remove("active");
-            element.setAttribute("aria-pressed", "false");
+    const setColors = (colors: Colors): void => {
+        document.querySelectorAll<HTMLLinkElement>("#evap-default-colors, #evap-alternative-colors").forEach(sheet => {
+            sheet.media = sheet.id === `evap-${colors}-colors` ? "all" : "not all";
         });
-
-        btnToActive.classList.add("active");
-        btnToActive.setAttribute("aria-pressed", "true");
-        if (svgOfActiveBtn) {
-            activeThemeIcon.setAttribute("href", svgOfActiveBtn);
-        }
-        const themeSwitcherLabel = `${themeSwitcherText.textContent} (${btnToActive.dataset.bsThemeValue})`;
-        themeSwitcher.setAttribute("aria-label", themeSwitcherLabel);
-
-        if (focus) {
-            themeSwitcher.focus();
-        }
+        showActiveOption("data-evap-colors-value", colors);
     };
 
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    const applyPreferences = (): void => {
+        setTheme(getPreferredTheme());
+        setColors(getPreferredColors());
+    };
+
+    applyPreferences();
+
+    systemTheme.addEventListener("change", () => {
         const storedTheme = getStoredTheme();
         if (storedTheme !== "light" && storedTheme !== "dark") {
             setTheme(getPreferredTheme());
@@ -81,17 +64,28 @@
     });
 
     window.addEventListener("DOMContentLoaded", () => {
-        showActiveTheme(getPreferredTheme());
+        applyPreferences();
+
+        document.querySelectorAll<HTMLElement>("[data-evap-colors-value]").forEach(toggle => {
+            toggle.addEventListener("click", () => {
+                const colors = toggle.getAttribute("data-evap-colors-value");
+                if (!isColors(colors)) {
+                    return;
+                }
+                localStorage.setItem("evap-colors", colors);
+                setColors(colors);
+            });
+        });
 
         document.querySelectorAll<HTMLElement>("[data-bs-theme-value]").forEach(toggle => {
             toggle.addEventListener("click", () => {
                 const theme = toggle.getAttribute("data-bs-theme-value");
-                if (!theme || !isTheme(theme)) {
+                if (!isTheme(theme)) {
                     return;
                 }
-                setStoredTheme(theme);
+                localStorage.setItem("theme", theme);
                 setTheme(theme);
-                showActiveTheme(theme, true);
+                document.querySelector<HTMLElement>("#navBarColorModeDropdownMenuLink")?.focus();
             });
         });
     });
