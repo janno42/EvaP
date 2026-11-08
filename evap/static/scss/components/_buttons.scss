@@ -2,6 +2,41 @@
     align-content: center;
 }
 
+.btn.btn-sloped {
+    position: relative;
+    overflow: hidden;
+    padding-right: calc(var(--bs-btn-padding-x) + 0.6rem);
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: -0.25rem;
+        width: 1.2rem;
+        background-color: currentColor;
+        opacity: 0.15;
+        pointer-events: none;
+        transform: skewX(-3.4deg);
+        transform-origin: bottom right;
+        @include transition(transform 0.2s ease-in-out);
+    }
+
+    &:not(:disabled):not(.disabled) {
+        &:hover::before,
+        &:focus-visible::before {
+            transform: translateX(100%) skewX(-3.4deg);
+        }
+    }
+
+    &.btn-sm{
+        padding-right: calc(var(--bs-btn-padding-x) + 0.4rem);
+        &::before {
+            width: 0.8rem;
+        }
+    }
+}
+
 .btn.fas {
     font-weight: 900;
 }
@@ -144,7 +179,8 @@ a:not([href]):not(.disabled) {
         .btn {
             border: none;
             border-radius: 0;
-            padding: 0 0.25rem;
+            --bs-btn-padding-y: 0;
+            --bs-btn-padding-x: 0.25rem;
             background-color: tint-color($darker-gray, 10%);
             color: $light-gray;
             transition: none;
@@ -183,7 +219,8 @@ a:not([href]):not(.disabled) {
     }
 
     .btn-dark {
-        padding: 0 0.2rem;
+        --bs-btn-padding-y: 0;
+        --bs-btn-padding-x: 0.2rem;
         color: $light-gray;
     }
 }
@@ -217,7 +254,8 @@ a:not([href]):not(.disabled) {
 .btn.vote-btn {
     width: 6rem;
     height: 2.5rem;
-    padding: 0.25rem;
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-padding-x: 0.25rem;
     font-size: 0.85rem;
     white-space: normal;
     line-height: 1rem;
